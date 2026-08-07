@@ -45,5 +45,8 @@ def delete_records(
 
 
 if __name__ == "__main__":
-    transport = "streamable-http" if "--http" in sys.argv else "stdio"
-    server.run(transport)
+    if "--http" in sys.argv:
+        port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8000
+        server.run("streamable-http", port=port)
+    else:
+        server.run("stdio")
