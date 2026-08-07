@@ -56,11 +56,13 @@ from ._context_tools import (
 try:
     from ._mcp import (
         HTTPServerConfig,
+        InMemoryServerConfig,
         MCPClientManager,
         MCPServerConfig,
         MCPTool,
         StdioServerConfig,
         TransportType,
+        WireTap,
         create_mcp_tools,
     )
 
@@ -72,6 +74,8 @@ except ImportError:
     MCPServerConfig = None  # type: ignore
     StdioServerConfig = None  # type: ignore
     HTTPServerConfig = None  # type: ignore
+    InMemoryServerConfig = None  # type: ignore
+    WireTap = None  # type: ignore
     TransportType = None  # type: ignore
     create_mcp_tools = None  # type: ignore
 
@@ -116,6 +120,8 @@ __all__ = [
     "MCPServerConfig",
     "StdioServerConfig",
     "HTTPServerConfig",
+    "InMemoryServerConfig",
+    "WireTap",
     "TransportType",
     "create_mcp_tools",
     "MCP_AVAILABLE",

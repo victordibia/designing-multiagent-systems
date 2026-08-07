@@ -77,7 +77,7 @@ research = [
     "html2text>=2020.1.16",
 ]
 mcp = [
-    "mcp>=1.0.0",
+    "mcp>=2.0.0",
 ]
 anthropic = [
     "anthropic>=0.70.0",

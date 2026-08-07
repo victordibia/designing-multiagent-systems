@@ -1,13 +1,13 @@
 """
 Configuration classes for MCP server connections.
 
-Supports multiple transport types: stdio, SSE, and streamable HTTP.
+Supports multiple transport types: stdio, streamable HTTP, in-memory, and
+legacy SSE (deprecated in the 2026-07-28 spec).
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-TransportType = Literal["stdio", "sse", "streamable-http"]
+TransportType = Literal["stdio", "sse", "streamable-http", "memory"]
 
 
 class MCPServerConfig:
@@ -100,3 +100,30 @@ class HTTPServerConfig(MCPServerConfig):
 
         self.headers = headers
         """Optional HTTP headers (e.g., for authentication)"""
+
+
+class InMemoryServerConfig(MCPServerConfig):
+    """
+    Configuration for an in-process MCP server (no subprocess, no network).
+
+    Wraps an `mcp.server.mcpserver.MCPServer` (or low-level `Server`) instance
+    directly. Used for tests and built-in demo servers in the WebUI playground.
+
+    Example:
+        ```python
+        from mcp.server.mcpserver import MCPServer
+
+        server = MCPServer("demo")
+
+        @server.tool()
+        def add(a: int, b: int) -> int:
+            return a + b
+
+        config = InMemoryServerConfig(server_id="demo", server=server)
+        ```
+    """
+
+    def __init__(self, server_id: str, server: Any):
+        super().__init__(server_id, "memory", None)
+        self.server = server
+        """The in-process MCP server instance"""

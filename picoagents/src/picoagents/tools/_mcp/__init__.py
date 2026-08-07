@@ -23,8 +23,15 @@ Example:
     ```
 """
 
-from ._config import HTTPServerConfig, MCPServerConfig, StdioServerConfig, TransportType
+from ._config import (
+    HTTPServerConfig,
+    InMemoryServerConfig,
+    MCPServerConfig,
+    StdioServerConfig,
+    TransportType,
+)
 from ._integration import create_mcp_tools
+from ._tap import WireFrame, WireTap
 from ._tool import MCPTool
 
 try:
@@ -41,7 +48,10 @@ __all__ = [
     "MCPServerConfig",
     "StdioServerConfig",
     "HTTPServerConfig",
+    "InMemoryServerConfig",
     "TransportType",
+    "WireFrame",
+    "WireTap",
     "create_mcp_tools",
     "MCP_CLIENT_AVAILABLE",
 ]

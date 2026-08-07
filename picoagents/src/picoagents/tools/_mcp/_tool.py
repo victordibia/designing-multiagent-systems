@@ -108,9 +108,9 @@ class MCPTool(BaseTool):
             output = self._extract_result_content(result)
 
             return ToolResult(
-                success=not result.isError,
+                success=not result.is_error,
                 result=output,
-                error=None if not result.isError else "MCP tool execution failed",
+                error=None if not result.is_error else "MCP tool execution failed",
                 metadata={
                     "tool_name": self.name,
                     "mcp_server": self.server_id,
@@ -142,8 +142,8 @@ class MCPTool(BaseTool):
             Extracted content (dict for structured, str for text)
         """
         # Prefer structured content if available (MCP 2025-06-18+)
-        if hasattr(result, "structuredContent") and result.structuredContent:
-            return result.structuredContent
+        if getattr(result, "structured_content", None):
+            return result.structured_content
 
         # Fall back to text content
         try:

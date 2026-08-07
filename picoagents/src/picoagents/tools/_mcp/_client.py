@@ -1,19 +1,31 @@
 """
-MCPClientManager - Manages connections to MCP servers.
+MCPClientManager - Manages connections to MCP servers (mcp SDK 2.0).
 
-This module handles server lifecycle, tool discovery, and session management
-for multiple MCP servers across different transports.
+This module handles server lifecycle, discovery, and tool creation for
+multiple MCP servers across different transports, using the high-level
+`mcp.client.Client` from SDK 2.0 (protocol 2026-07-28). In `auto` mode the
+client negotiates statelessly via `server/discover` and falls back to the
+legacy `initialize` handshake for older servers.
 """
 
 from contextlib import asynccontextmanager
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
-from mcp import ClientSession
+from mcp.client import Client
 
 from .._base import BaseTool
 from ._config import MCPServerConfig
+from ._tap import FrameCallback, WireFrame, WireTap
 from ._tool import MCPTool
-from ._transports import connect_to_server
+from ._transports import build_transport
+
+ElicitationHandler = Callable[[str, Any], Awaitable[Any]]
+"""Async handler invoked as (server_id, ElicitRequestParams) -> ElicitResult.
+
+Bridges MRTR (mid-call input) requests to the application - e.g. the WebUI
+playground parks the call and asks the user. When no handler is set, servers
+that elicit input receive a decline.
+"""
 
 
 class MCPClientManager:
@@ -21,43 +33,55 @@ class MCPClientManager:
     Manages connections to MCP servers and provides tool discovery.
 
     This class handles:
-    - Connecting to multiple MCP servers (stdio, SSE, HTTP)
+    - Connecting to multiple MCP servers (stdio, streamable HTTP, legacy SSE)
     - Discovering available tools from each server
     - Creating MCPTool instances for discovered tools
     - Lifecycle management (startup/shutdown)
-    - Session caching and reuse
+    - Optional MRTR (mid-call input) bridging via `elicitation_handler`
+    - Optional wire-frame recording via `enable_wire_tap`
 
     Example:
         ```python
         manager = MCPClientManager()
 
-        # Add server configurations
         manager.add_server(StdioServerConfig(
             server_id="filesystem",
             command="npx",
             args=["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
         ))
 
-        # Connect and discover tools
         await manager.connect("filesystem")
-
-        # Get discovered tools
         tools = manager.get_tools("filesystem")
 
-        # Use tools with agents
         agent = Agent(name="file_agent", tools=tools, ...)
 
-        # Cleanup
         await manager.disconnect_all()
         ```
     """
 
-    def __init__(self):
-        """Initialize an empty client manager."""
+    def __init__(
+        self,
+        elicitation_handler: Optional[ElicitationHandler] = None,
+        enable_wire_tap: bool = False,
+        on_frame: Optional[FrameCallback] = None,
+        max_frames: int = 1000,
+    ):
+        """Initialize an empty client manager.
+
+        Args:
+            elicitation_handler: Optional async handler for MRTR input requests.
+            enable_wire_tap: Record raw JSON-RPC frames per server.
+            on_frame: Optional callback invoked as (server_id, frame) per frame.
+            max_frames: Max frames retained per server (ring buffer).
+        """
         self._servers: Dict[str, MCPServerConfig] = {}
-        self._sessions: Dict[str, ClientSession] = {}
+        self._clients: Dict[str, Client] = {}
         self._tools: Dict[str, List[MCPTool]] = {}
-        self._client_contexts: Dict[str, Any] = {}
+        self._taps: Dict[str, WireTap] = {}
+        self._elicitation_handler = elicitation_handler
+        self._enable_wire_tap = enable_wire_tap
+        self._on_frame = on_frame
+        self._max_frames = max_frames
 
     def add_server(self, config: MCPServerConfig) -> None:
         """
@@ -76,15 +100,25 @@ class MCPClientManager:
 
         self._servers[config.server_id] = config
 
+    def remove_server(self, server_id: str) -> None:
+        """Unregister a server. Must be disconnected first."""
+        if server_id in self._clients:
+            raise ValueError(f"Server '{server_id}' is connected; disconnect first")
+        self._servers.pop(server_id, None)
+        self._taps.pop(server_id, None)
+
+    def get_config(self, server_id: str) -> Optional[MCPServerConfig]:
+        """Return the registered config for a server, if any."""
+        return self._servers.get(server_id)
+
     async def connect(self, server_id: str) -> None:
         """
         Connect to an MCP server and discover its tools.
 
         This method:
-        1. Establishes connection using the configured transport
-        2. Initializes the MCP session
-        3. Discovers available tools
-        4. Creates MCPTool instances for each tool
+        1. Builds the configured transport (optionally wire-tapped)
+        2. Negotiates the connection (`server/discover`, legacy fallback)
+        3. Discovers available tools and creates MCPTool instances
 
         Args:
             server_id: ID of the server to connect to
@@ -96,47 +130,56 @@ class MCPClientManager:
         if server_id not in self._servers:
             raise ValueError(f"Unknown server: {server_id}")
 
-        # Skip if already connected
-        if server_id in self._sessions:
+        if server_id in self._clients:
             return
 
         config = self._servers[server_id]
 
         try:
-            # Connect using appropriate transport
-            read, write, client_context = await connect_to_server(config)
-            self._client_contexts[server_id] = client_context
+            transport: Any = build_transport(config)
+            if self._enable_wire_tap:
+                transport = WireTap(
+                    transport,
+                    server_id=server_id,
+                    max_frames=self._max_frames,
+                    on_frame=self._on_frame,
+                )
+                self._taps[server_id] = transport
 
-            # Create and initialize session
-            session = ClientSession(read, write)
-            await session.__aenter__()
-            self._sessions[server_id] = session
+            client = Client(
+                transport,
+                elicitation_callback=(
+                    self._make_elicitation_callback(server_id)
+                    if self._elicitation_handler
+                    else None
+                ),
+            )
+            await client.__aenter__()
+            self._clients[server_id] = client
 
-            # Initialize the MCP connection
-            await session.initialize()
-
-            # Discover tools
             await self._discover_tools(server_id)
 
         except Exception as e:
-            # Cleanup on failure
-            if server_id in self._sessions:
+            if server_id in self._clients:
                 try:
-                    await self._sessions[server_id].__aexit__(None, None, None)
+                    await self._clients[server_id].__aexit__(None, None, None)
                 except Exception:
                     pass
-                del self._sessions[server_id]
-
-            if server_id in self._client_contexts:
-                try:
-                    await self._client_contexts[server_id].__aexit__(None, None, None)
-                except Exception:
-                    pass
-                del self._client_contexts[server_id]
+                del self._clients[server_id]
+            self._taps.pop(server_id, None)
 
             raise ConnectionError(
                 f"Failed to connect to MCP server '{server_id}': {e}"
             ) from e
+
+    def _make_elicitation_callback(self, server_id: str) -> Any:
+        handler = self._elicitation_handler
+        assert handler is not None
+
+        async def callback(_context: Any, params: Any) -> Any:
+            return await handler(server_id, params)
+
+        return callback
 
     async def _discover_tools(self, server_id: str) -> None:
         """
@@ -145,18 +188,16 @@ class MCPClientManager:
         Args:
             server_id: Server to discover tools from
         """
-        session = self._sessions[server_id]
+        client = self._clients[server_id]
 
-        # List available tools
-        tools_response = await session.list_tools()
+        tools_response = await client.list_tools()
 
-        # Create MCPTool instances
         mcp_tools = []
         for tool in tools_response.tools:
             mcp_tool = MCPTool(
                 mcp_tool_name=tool.name,
                 mcp_tool_description=tool.description or "",
-                mcp_tool_schema=tool.inputSchema,
+                mcp_tool_schema=tool.input_schema,
                 client_manager=self,
                 server_id=server_id,
             )
@@ -164,9 +205,9 @@ class MCPClientManager:
 
         self._tools[server_id] = mcp_tools
 
-    async def get_session(self, server_id: str) -> ClientSession:
+    async def get_session(self, server_id: str) -> Client:
         """
-        Get the MCP client session for a server.
+        Get the MCP client for a server (named for pre-2.0 compatibility).
 
         Automatically connects if not already connected.
 
@@ -174,14 +215,49 @@ class MCPClientManager:
             server_id: Server ID
 
         Returns:
-            ClientSession for the server
+            The connected `mcp.client.Client` for the server
 
         Raises:
             ValueError: If server_id is not registered
         """
-        if server_id not in self._sessions:
+        if server_id not in self._clients:
             await self.connect(server_id)
-        return self._sessions[server_id]
+        return self._clients[server_id]
+
+    # 2.0 name; get_session is kept so existing code and mocks keep working
+    get_client = get_session
+
+    def get_server_info(self, server_id: str) -> Dict[str, Any]:
+        """
+        Return negotiated connection details for a connected server.
+
+        Includes protocol version, server info, and capabilities as
+        discovered during connection (`server/discover` or legacy init).
+        """
+        if server_id not in self._clients:
+            raise ValueError(f"Server '{server_id}' is not connected")
+        client = self._clients[server_id]
+
+        def dump(model: Any) -> Any:
+            if model is None:
+                return None
+            try:
+                return model.model_dump(by_alias=True, exclude_none=True, mode="json")
+            except Exception:
+                return str(model)
+
+        return {
+            "server_id": server_id,
+            "protocol_version": getattr(client, "protocol_version", None),
+            "server_info": dump(getattr(client, "server_info", None)),
+            "capabilities": dump(getattr(client, "server_capabilities", None)),
+            "instructions": getattr(client, "instructions", None),
+        }
+
+    def get_wire_frames(self, server_id: str) -> List[WireFrame]:
+        """Return recorded wire frames for a server (empty if tap disabled)."""
+        tap = self._taps.get(server_id)
+        return list(tap.frames) if tap else []
 
     def get_tools(
         self, server_id: Optional[str] = None
@@ -198,13 +274,11 @@ class MCPClientManager:
             Returns Union type to match Agent signature exactly.
         """
         if server_id:
-            # Cast to match Agent's expected type
             tools: List[Union[BaseTool, Callable[..., Any]]] = list(
                 self._tools.get(server_id, [])
             )
             return tools
 
-        # Return tools from all servers
         all_tools: List[Union[BaseTool, Callable[..., Any]]] = []
         for tools_list in self._tools.values():
             all_tools.extend(tools_list)
@@ -229,40 +303,32 @@ class MCPClientManager:
         Returns:
             True if connected, False otherwise
         """
-        return server_id in self._sessions
+        return server_id in self._clients
 
     async def disconnect(self, server_id: str) -> None:
         """
         Disconnect from an MCP server.
 
-        Cleans up sessions, contexts, and cached tools.
+        Cleans up the client, wire tap, and cached tools.
 
         Args:
             server_id: Server to disconnect from
         """
-        # Close session
-        if server_id in self._sessions:
+        if server_id in self._clients:
             try:
-                session = self._sessions.pop(server_id)
-                await session.__aexit__(None, None, None)
+                client = self._clients.pop(server_id)
+                await client.__aexit__(None, None, None)
             except Exception:
                 pass  # Best effort cleanup
 
-        # Close client context
-        if server_id in self._client_contexts:
-            try:
-                context = self._client_contexts.pop(server_id)
-                await context.__aexit__(None, None, None)
-            except Exception:
-                pass
+        self._taps.pop(server_id, None)
 
-        # Clear cached tools
         if server_id in self._tools:
             del self._tools[server_id]
 
     async def disconnect_all(self) -> None:
         """Disconnect from all MCP servers."""
-        server_ids = list(self._sessions.keys())
+        server_ids = list(self._clients.keys())
         for server_id in server_ids:
             await self.disconnect(server_id)
 

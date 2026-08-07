@@ -1,101 +1,70 @@
 """
-Transport layer implementations for connecting to MCP servers.
+Transport construction for MCP servers (mcp SDK 2.0).
 
-Supports stdio, SSE, and streamable HTTP transports.
+Builds Transport objects (async context managers yielding read/write streams)
+the high-level `mcp.client.Client` accepts. Supports stdio, streamable HTTP,
+and legacy SSE (deprecated in the 2026-07-28 spec, kept for older servers).
 """
 
-from typing import Any, Tuple
+from typing import Any
 
-from mcp import StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from ._config import HTTPServerConfig, MCPServerConfig, StdioServerConfig
+from ._config import (
+    HTTPServerConfig,
+    InMemoryServerConfig,
+    MCPServerConfig,
+    StdioServerConfig,
+)
 
 
-async def connect_to_server(config: MCPServerConfig) -> Tuple[Any, Any, Any]:
+def build_transport(config: MCPServerConfig) -> Any:
     """
-    Connect to an MCP server using the appropriate transport.
+    Build a Transport for a server config.
 
     Args:
         config: Server configuration
 
     Returns:
-        Tuple of (read_stream, write_stream, client_context)
+        An async context manager yielding (read_stream, write_stream),
+        suitable for passing to `mcp.client.Client`.
 
     Raises:
         ValueError: If transport type is not supported
-        ImportError: If required transport dependencies are missing
     """
+    if isinstance(config, InMemoryServerConfig):
+        from mcp.client._memory import InMemoryTransport
+
+        return InMemoryTransport(config.server)
     if isinstance(config, StdioServerConfig):
-        return await _connect_stdio(config)
-    elif isinstance(config, HTTPServerConfig):
+        return stdio_client(
+            StdioServerParameters(
+                command=config.command,
+                args=config.args,
+                env=config.env,
+            )
+        )
+    if isinstance(config, HTTPServerConfig):
         if config.transport == "sse":
-            return await _connect_sse(config)
-        else:  # streamable-http
-            return await _connect_http(config)
-    else:
-        raise ValueError(f"Unknown transport: {config.transport}")
+            return _build_sse(config)
+        return _build_streamable_http(config)
+    raise ValueError(f"Unknown transport: {config.transport}")
 
 
-async def _connect_stdio(config: StdioServerConfig) -> Tuple[Any, Any, Any]:
-    """
-    Connect using stdio transport.
+def _build_streamable_http(config: HTTPServerConfig) -> Any:
+    from mcp.client.streamable_http import streamable_http_client
 
-    Spawns a subprocess and communicates via stdin/stdout.
-    """
-    server_params = StdioServerParameters(
-        command=config.command,
-        args=config.args,
-        env=config.env or {},
-    )
+    if config.headers:
+        from mcp.shared._httpx_utils import create_mcp_http_client
 
-    client_context = stdio_client(server_params)
-    read, write = await client_context.__aenter__()
-    return read, write, client_context
+        return streamable_http_client(
+            config.url, http_client=create_mcp_http_client(headers=config.headers)
+        )
+    return streamable_http_client(config.url)
 
 
-async def _connect_sse(config: HTTPServerConfig) -> Tuple[Any, Any, Any]:
-    """
-    Connect using SSE (Server-Sent Events) transport.
+def _build_sse(config: HTTPServerConfig) -> Any:
+    """Legacy HTTP+SSE transport - deprecated in the 2026-07-28 spec."""
+    from mcp.client.sse import sse_client
 
-    Suitable for one-way streaming from server to client.
-    """
-    try:
-        from mcp.client.sse import sse_client
-    except ImportError as e:
-        raise ImportError(
-            "SSE transport requires mcp[sse] to be installed. "
-            "Install with: pip install mcp[sse]"
-        ) from e
-
-    client_context = sse_client(
-        url=config.url,
-        headers=config.headers or {},
-    )
-
-    read, write = await client_context.__aenter__()
-    return read, write, client_context
-
-
-async def _connect_http(config: HTTPServerConfig) -> Tuple[Any, Any, Any]:
-    """
-    Connect using streamable HTTP transport.
-
-    The recommended transport for production deployments.
-    Supports both stateful and stateless operation modes.
-    """
-    try:
-        from mcp.client.streamable_http import streamablehttp_client
-    except ImportError as e:
-        raise ImportError(
-            "Streamable HTTP transport requires mcp to be installed. "
-            "Install with: pip install mcp"
-        ) from e
-
-    client_context = streamablehttp_client(
-        url=config.url,
-        headers=config.headers or {},
-    )
-
-    read, write, _ = await client_context.__aenter__()
-    return read, write, client_context
+    return sse_client(config.url, headers=config.headers)
