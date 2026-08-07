@@ -6,11 +6,11 @@
 import { Button } from "@/components/ui/button";
 import { EntitySelector } from "@/components/shared/entity-selector";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Settings, Bot, History, FlaskConical } from "lucide-react";
+import { Settings, Bot, History, FlaskConical, Cable } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Entity } from "@/types";
 
-type AppMode = "entities" | "runs" | "evaluate";
+type AppMode = "entities" | "runs" | "evaluate" | "mcp";
 
 interface AppHeaderProps {
   entities: Entity[];
@@ -27,6 +27,7 @@ const modeItems: { mode: AppMode; label: string; icon: React.ReactNode }[] = [
   { mode: "entities", label: "Entities", icon: <Bot className="h-3.5 w-3.5" /> },
   { mode: "runs", label: "Runs", icon: <History className="h-3.5 w-3.5" /> },
   { mode: "evaluate", label: "Evaluate", icon: <FlaskConical className="h-3.5 w-3.5" /> },
+  { mode: "mcp", label: "MCP", icon: <Cable className="h-3.5 w-3.5" /> },
 ];
 
 export function AppHeader({

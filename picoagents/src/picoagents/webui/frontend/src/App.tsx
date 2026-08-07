@@ -12,6 +12,7 @@ import { OrchestratorView } from "@/components/orchestrator/orchestrator-view";
 import { WorkflowView } from "@/components/workflow/workflow-view";
 import { RunsView } from "@/components/runs/runs-view";
 import { EvalView } from "@/components/eval/eval-view";
+import { McpView } from "@/components/mcp/mcp-view";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ExamplesGallery } from "@/components/shared/examples-gallery";
 import { apiClient } from "@/services/api";
@@ -26,7 +27,7 @@ import type {
   SessionInfo,
 } from "@/types";
 
-type AppMode = "entities" | "runs" | "evaluate";
+type AppMode = "entities" | "runs" | "evaluate" | "mcp";
 
 
 export default function App() {
@@ -383,6 +384,25 @@ export default function App() {
         />
         <div className="flex-1 overflow-hidden">
           <EvalView />
+        </div>
+      </div>
+    );
+  }
+
+  if (appMode === "mcp") {
+    return (
+      <div className="h-screen flex flex-col bg-background">
+        <AppHeader
+          entities={appState.entities}
+          selectedEntity={appState.selectedEntity}
+          onSelect={handleEntitySelect}
+          isLoading={appState.isLoading}
+          onDeleteEntity={handleDeleteEntity}
+          appMode={appMode}
+          onAppModeChange={setAppMode}
+        />
+        <div className="flex-1 overflow-hidden">
+          <McpView />
         </div>
       </div>
     );
