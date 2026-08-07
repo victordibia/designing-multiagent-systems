@@ -1,0 +1,160 @@
+{
+  "as_of": "2026-08-07",
+  "notes": "Feature support for the MCP 2026-07-28 spec across official SDKs. The python row is overridden at runtime by introspecting the installed mcp package; other rows are curated from release notes and repos and dated by as_of.",
+  "features": [
+    { "key": "stateless-core", "label": "Stateless core", "description": "No initialize handshake; server/discover + per-request _meta" },
+    { "key": "mrtr", "label": "MRTR", "description": "Multi Round-Trip Requests (mid-call input without an open connection)" },
+    { "key": "tasks", "label": "Tasks runtime", "description": "Durable task handles: tasks/get polling, tasks/update" },
+    { "key": "tasks-types", "label": "Tasks wire types", "description": "Task request/result types available" },
+    { "key": "extensions", "label": "Extensions", "description": "Opt-in extension negotiation framework" },
+    { "key": "apps", "label": "MCP Apps", "description": "Interactive UI extension" },
+    { "key": "auth", "label": "Auth", "description": "OAuth 2.0 resource-server model" },
+    { "key": "subscriptions", "label": "Subscriptions", "description": "subscriptions/listen change notifications" }
+  ],
+  "sdks": [
+    {
+      "sdk": "python",
+      "label": "Python",
+      "version": "static-fallback",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "shipped" },
+        "mrtr": { "status": "shipped" },
+        "tasks": { "status": "missing", "note": "Runtime in open PR upstream; wire types already shipped" },
+        "tasks-types": { "status": "shipped" },
+        "extensions": { "status": "shipped" },
+        "apps": { "status": "shipped" },
+        "auth": { "status": "shipped" },
+        "subscriptions": { "status": "shipped" }
+      }
+    },
+    {
+      "sdk": "typescript",
+      "label": "TypeScript",
+      "version": "2.0",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "shipped" },
+        "mrtr": { "status": "shipped" },
+        "tasks": { "status": "missing", "note": "Tasks work mid-extraction, not in the 2.0 release" },
+        "tasks-types": { "status": "partial" },
+        "extensions": { "status": "shipped" },
+        "apps": { "status": "partial" },
+        "auth": { "status": "shipped" },
+        "subscriptions": { "status": "shipped" }
+      }
+    },
+    {
+      "sdk": "csharp",
+      "label": "C#",
+      "version": "stable",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "shipped" },
+        "mrtr": { "status": "shipped" },
+        "tasks": { "status": "shipped", "note": "Full runtime incl. task store" },
+        "tasks-types": { "status": "shipped" },
+        "extensions": { "status": "shipped" },
+        "apps": { "status": "shipped" },
+        "auth": { "status": "shipped" },
+        "subscriptions": { "status": "shipped" }
+      }
+    },
+    {
+      "sdk": "rust",
+      "label": "Rust",
+      "version": "stable",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "shipped" },
+        "mrtr": { "status": "shipped" },
+        "tasks": { "status": "shipped", "note": "Full runtime incl. task store" },
+        "tasks-types": { "status": "shipped" },
+        "extensions": { "status": "shipped" },
+        "apps": { "status": "shipped" },
+        "auth": { "status": "shipped" },
+        "subscriptions": { "status": "shipped" }
+      }
+    },
+    {
+      "sdk": "go",
+      "label": "Go",
+      "version": "current",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "shipped" },
+        "mrtr": { "status": "shipped" },
+        "tasks": { "status": "missing" },
+        "tasks-types": { "status": "partial" },
+        "extensions": { "status": "shipped" },
+        "apps": { "status": "missing" },
+        "auth": { "status": "shipped" },
+        "subscriptions": { "status": "shipped" }
+      }
+    },
+    {
+      "sdk": "java",
+      "label": "Java",
+      "version": "pre-2026 release",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "missing", "note": "Release predates the final 2026-07-28 spec" },
+        "mrtr": { "status": "missing" },
+        "tasks": { "status": "missing" },
+        "tasks-types": { "status": "missing" },
+        "extensions": { "status": "missing" },
+        "apps": { "status": "missing" },
+        "auth": { "status": "partial" },
+        "subscriptions": { "status": "missing" }
+      }
+    },
+    {
+      "sdk": "swift",
+      "label": "Swift",
+      "version": "pre-2026 release",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "missing", "note": "Release predates the final 2026-07-28 spec" },
+        "mrtr": { "status": "missing" },
+        "tasks": { "status": "missing" },
+        "tasks-types": { "status": "missing" },
+        "extensions": { "status": "missing" },
+        "apps": { "status": "missing" },
+        "auth": { "status": "partial" },
+        "subscriptions": { "status": "missing" }
+      }
+    },
+    {
+      "sdk": "kotlin",
+      "label": "Kotlin",
+      "version": "current",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "partial" },
+        "mrtr": { "status": "missing" },
+        "tasks": { "status": "missing" },
+        "tasks-types": { "status": "missing" },
+        "extensions": { "status": "partial" },
+        "apps": { "status": "missing" },
+        "auth": { "status": "partial" },
+        "subscriptions": { "status": "missing" }
+      }
+    },
+    {
+      "sdk": "php",
+      "label": "PHP",
+      "version": "current",
+      "source": "curated",
+      "features": {
+        "stateless-core": { "status": "partial" },
+        "mrtr": { "status": "missing" },
+        "tasks": { "status": "missing" },
+        "tasks-types": { "status": "missing" },
+        "extensions": { "status": "partial" },
+        "apps": { "status": "missing" },
+        "auth": { "status": "partial" },
+        "subscriptions": { "status": "missing" }
+      }
+    }
+  ]
+}

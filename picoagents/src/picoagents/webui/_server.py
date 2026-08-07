@@ -100,6 +100,9 @@ class PicoAgentsWebUIServer:
                 logger.info("Persistence store initialized")
             yield
             # Shutdown
+            playground = getattr(app.state, "mcp_playground", None)
+            if playground is not None:
+                await playground.shutdown()
             logger.info("Shutting down PicoAgents WebUI Server")
 
         app = FastAPI(
@@ -127,6 +130,17 @@ class PicoAgentsWebUIServer:
 
             app.include_router(runs_router)
             app.include_router(eval_router)
+
+        # MCP playground (requires picoagents[mcp] with mcp>=2.0)
+        try:
+            from picoagents.tools import MCP_AVAILABLE
+
+            if MCP_AVAILABLE:
+                from ._mcp_router import router as mcp_router
+
+                app.include_router(mcp_router)
+        except ImportError:
+            logger.info("MCP not installed; playground routes disabled")
 
         self._mount_frontend(app)
         return app

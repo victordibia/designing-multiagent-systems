@@ -8,8 +8,9 @@ client negotiates statelessly via `server/discover` and falls back to the
 legacy `initialize` handshake for older servers.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 
 from mcp.client import Client
 
@@ -76,6 +77,7 @@ class MCPClientManager:
         """
         self._servers: Dict[str, MCPServerConfig] = {}
         self._clients: Dict[str, Client] = {}
+        self._runners: Dict[str, Tuple["asyncio.Task[None]", "asyncio.Event"]] = {}
         self._tools: Dict[str, List[MCPTool]] = {}
         self._taps: Dict[str, WireTap] = {}
         self._elicitation_handler = elicitation_handler
@@ -135,41 +137,62 @@ class MCPClientManager:
 
         config = self._servers[server_id]
 
-        try:
-            transport: Any = build_transport(config)
-            if self._enable_wire_tap:
-                transport = WireTap(
-                    transport,
-                    server_id=server_id,
-                    max_frames=self._max_frames,
-                    on_frame=self._on_frame,
-                )
-                self._taps[server_id] = transport
-
-            client = Client(
+        transport: Any = build_transport(config)
+        if self._enable_wire_tap:
+            transport = WireTap(
                 transport,
-                elicitation_callback=(
-                    self._make_elicitation_callback(server_id)
-                    if self._elicitation_handler
-                    else None
-                ),
+                server_id=server_id,
+                max_frames=self._max_frames,
+                on_frame=self._on_frame,
             )
-            await client.__aenter__()
-            self._clients[server_id] = client
 
-            await self._discover_tools(server_id)
+        client = Client(
+            transport,
+            elicitation_callback=(
+                self._make_elicitation_callback(server_id)
+                if self._elicitation_handler
+                else None
+            ),
+        )
 
+        # The client's context (and its anyio cancel scopes) must be entered
+        # and exited in the same task, but callers connect and disconnect from
+        # different tasks (e.g. separate HTTP requests). A dedicated runner
+        # task owns the client lifecycle; disconnect signals it to exit.
+        loop = asyncio.get_running_loop()
+        ready: "asyncio.Future[None]" = loop.create_future()
+        stop = asyncio.Event()
+
+        async def runner() -> None:
+            try:
+                async with client:
+                    ready.set_result(None)
+                    await stop.wait()
+            except Exception as e:
+                if not ready.done():
+                    ready.set_exception(e)
+
+        task = loop.create_task(runner())
+        try:
+            await ready
         except Exception as e:
-            if server_id in self._clients:
-                try:
-                    await self._clients[server_id].__aexit__(None, None, None)
-                except Exception:
-                    pass
-                del self._clients[server_id]
-            self._taps.pop(server_id, None)
-
+            stop.set()
+            await asyncio.gather(task, return_exceptions=True)
             raise ConnectionError(
                 f"Failed to connect to MCP server '{server_id}': {e}"
+            ) from e
+
+        self._clients[server_id] = client
+        self._runners[server_id] = (task, stop)
+        if isinstance(transport, WireTap):
+            self._taps[server_id] = transport
+
+        try:
+            await self._discover_tools(server_id)
+        except Exception as e:
+            await self.disconnect(server_id)
+            raise ConnectionError(
+                f"Failed to discover tools on MCP server '{server_id}': {e}"
             ) from e
 
     def _make_elicitation_callback(self, server_id: str) -> Any:
@@ -315,11 +338,13 @@ class MCPClientManager:
             server_id: Server to disconnect from
         """
         if server_id in self._clients:
+            self._clients.pop(server_id)
+            task, stop = self._runners.pop(server_id)
+            stop.set()
             try:
-                client = self._clients.pop(server_id)
-                await client.__aexit__(None, None, None)
-            except Exception:
-                pass  # Best effort cleanup
+                await asyncio.wait_for(asyncio.shield(task), timeout=10)
+            except (asyncio.TimeoutError, Exception):
+                task.cancel()  # Best effort cleanup
 
         self._taps.pop(server_id, None)
 
