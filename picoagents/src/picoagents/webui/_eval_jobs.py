@@ -181,7 +181,13 @@ class EvalJobManager:
                     )
 
             if cancellation_token.is_cancelled():
-                # cancel_eval_run already marked the run cancelled
+                # Idempotent with cancel_eval_run; also covers shutdown(),
+                # which cancels tokens without writing the DB status.
+                await self._store.update_eval_run_progress(
+                    eval_run_id,
+                    status="cancelled",
+                    completed_at=datetime.now(timezone.utc),
+                )
                 return
 
             # Save full JSON file

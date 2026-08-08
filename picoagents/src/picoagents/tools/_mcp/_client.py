@@ -81,6 +81,7 @@ class MCPClientManager:
         self._servers: Dict[str, MCPServerConfig] = {}
         self._clients: Dict[str, Client] = {}
         self._runners: Dict[str, Tuple["asyncio.Task[None]", "asyncio.Event"]] = {}
+        self._connect_locks: Dict[str, asyncio.Lock] = {}
         self._tools: Dict[str, List[MCPTool]] = {}
         self._taps: Dict[str, WireTap] = {}
         self._elicitation_handler = elicitation_handler
@@ -111,6 +112,7 @@ class MCPClientManager:
             raise ValueError(f"Server '{server_id}' is connected; disconnect first")
         self._servers.pop(server_id, None)
         self._taps.pop(server_id, None)
+        self._connect_locks.pop(server_id, None)
 
     def get_config(self, server_id: str) -> Optional[MCPServerConfig]:
         """Return the registered config for a server, if any."""
@@ -135,6 +137,11 @@ class MCPClientManager:
         if server_id not in self._servers:
             raise ValueError(f"Unknown server: {server_id}")
 
+        lock = self._connect_locks.setdefault(server_id, asyncio.Lock())
+        async with lock:
+            await self._connect_locked(server_id)
+
+    async def _connect_locked(self, server_id: str) -> None:
         if server_id in self._clients:
             return
 
@@ -174,6 +181,16 @@ class MCPClientManager:
             except Exception as e:
                 if not ready.done():
                     ready.set_exception(e)
+                elif not stop.is_set():
+                    # Post-connect transport death (server crashed, stream
+                    # reset): surface it and drop the stale connection state.
+                    logger.warning(
+                        f"MCP connection to '{server_id}' died: {type(e).__name__}: {e}"
+                    )
+                    self._clients.pop(server_id, None)
+                    self._runners.pop(server_id, None)
+                    self._taps.pop(server_id, None)
+                    self._tools.pop(server_id, None)
 
         task = loop.create_task(runner())
         try:
@@ -348,7 +365,8 @@ class MCPClientManager:
                 await asyncio.wait_for(asyncio.shield(task), timeout=10)
             except Exception:
                 logger.warning(f"MCP client for '{server_id}' did not close cleanly; cancelling")
-                task.cancel()  # Best effort cleanup
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
 
         self._taps.pop(server_id, None)
 

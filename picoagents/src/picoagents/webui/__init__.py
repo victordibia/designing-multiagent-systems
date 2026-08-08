@@ -1,8 +1,6 @@
 """
 PicoAgents WebUI - Web interface for PicoAgents entities.
 
-logger = logging.getLogger(__name__)
-
 Provides a web-based interface for discovering, running, and interacting with
 PicoAgents agents, orchestrators, and workflows.
 """

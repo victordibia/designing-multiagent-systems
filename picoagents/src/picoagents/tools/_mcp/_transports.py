@@ -51,14 +51,33 @@ def build_transport(config: MCPServerConfig) -> Any:
     raise ValueError(f"Unknown transport: {config.transport}")
 
 
+class _ClosingHttpTransport:
+    """Wraps a streamable-http transport, closing the caller-provided httpx
+    client on exit (the SDK only manages clients it creates itself)."""
+
+    def __init__(self, inner: Any, http_client: Any):
+        self._inner = inner
+        self._http_client = http_client
+
+    async def __aenter__(self) -> Any:
+        return await self._inner.__aenter__()
+
+    async def __aexit__(self, *exc_info: Any) -> Any:
+        try:
+            return await self._inner.__aexit__(*exc_info)
+        finally:
+            await self._http_client.aclose()
+
+
 def _build_streamable_http(config: HTTPServerConfig) -> Any:
     from mcp.client.streamable_http import streamable_http_client
 
     if config.headers:
         from mcp.shared._httpx_utils import create_mcp_http_client
 
-        return streamable_http_client(
-            config.url, http_client=create_mcp_http_client(headers=config.headers)
+        http_client = create_mcp_http_client(headers=config.headers)
+        return _ClosingHttpTransport(
+            streamable_http_client(config.url, http_client=http_client), http_client
         )
     return streamable_http_client(config.url)
 

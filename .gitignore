@@ -47,6 +47,9 @@ downloads/
 eggs/
 .eggs/
 lib/
+# The Python 'lib/' pattern above must not swallow the frontend source dir
+!picoagents/src/picoagents/webui/frontend/src/lib/
+!picoagents/src/picoagents/webui/frontend/src/lib/**
 lib64/
 parts/
 sdist/

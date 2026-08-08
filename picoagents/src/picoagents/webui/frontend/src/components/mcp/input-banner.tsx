@@ -25,8 +25,25 @@ export function InputBanner({ pending, onReply }: InputBannerProps) {
   const isSimpleConfirm =
     fieldNames.length === 1 && properties[fieldNames[0]]?.type === "boolean";
 
+  const coerce = (name: string, raw: any) => {
+    const type = properties[name]?.type;
+    if (type === "number" || type === "integer") {
+      const n = Number(raw);
+      return Number.isNaN(n) ? raw : type === "integer" ? Math.trunc(n) : n;
+    }
+    if (type === "boolean") {
+      if (typeof raw === "boolean") return raw;
+      return raw === "true" || raw === "yes" || raw === "1";
+    }
+    return raw;
+  };
+
   const submit = (content: Record<string, any>) =>
-    onReply(pending.input_id, "accept", content);
+    onReply(
+      pending.input_id,
+      "accept",
+      Object.fromEntries(Object.entries(content).map(([k, v]) => [k, coerce(k, v)]))
+    );
 
   return (
     <Alert variant="warning">

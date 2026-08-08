@@ -73,8 +73,21 @@ export function RunsView({ selectedRunId }: RunsViewProps) {
     );
   });
 
-  // Detail page (routed)
-  const selectedRun = selectedRunId ? runs.find((r) => r.id === selectedRunId) : undefined;
+  // Detail page (routed). The run may not be in the loaded page (limit 100),
+  // or the user deep-linked - fall back to fetching it directly.
+  const [fetchedRun, setFetchedRun] = useState<Run | null>(null);
+  const listedRun = selectedRunId ? runs.find((r) => r.id === selectedRunId) : undefined;
+  useEffect(() => {
+    setFetchedRun(null);
+    if (selectedRunId && !listedRun) {
+      evalApiClient
+        .getRun(selectedRunId)
+        .then(setFetchedRun)
+        .catch(() => setFetchedRun(null));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRunId, listedRun?.id]);
+  const selectedRun = listedRun ?? fetchedRun ?? undefined;
   if (selectedRunId) {
     return (
       <div className="flex h-full flex-col">

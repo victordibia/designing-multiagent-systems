@@ -67,7 +67,17 @@ try:
     )
 
     MCP_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    # Only "mcp is not installed" is a valid optional-extra condition. An
+    # installed-but-incompatible SDK (mcp 1.x) must fail loudly, not become
+    # a sea of None symbols.
+    import importlib.util
+
+    if importlib.util.find_spec("mcp") is not None:
+        raise ImportError(
+            "picoagents MCP integration requires mcp>=2.0.0 "
+            "(protocol 2026-07-28). Upgrade with: pip install 'mcp>=2.0.0'"
+        ) from e
     MCP_AVAILABLE = False
     MCPTool = None  # type: ignore
     MCPClientManager = None  # type: ignore

@@ -73,6 +73,10 @@ class EvalApiClient {
     return this.request<RunData>(`/api/runs/${runId}/data`);
   }
 
+  async getRun(runId: string): Promise<Run> {
+    return this.request(`/api/runs/${runId}`);
+  }
+
   async deleteRun(runId: string): Promise<{ status: string }> {
     return this.request(`/api/runs/${runId}`, { method: "DELETE" });
   }

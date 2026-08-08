@@ -101,9 +101,7 @@ class PicoAgentsScanner:
         """Clear the entity cache for hot reloading."""
         # Remove from sys.modules
         for entity_id in list(self._entity_cache.keys()):
-            if entity_id in sys.modules:
-                del sys.modules[entity_id]
-                logger.debug(f"Removed {entity_id} from sys.modules")
+            sys.modules.pop(f"picoagents_entity_{entity_id}", None)
 
         self._entity_cache.clear()
         logger.info("Cleared entity cache")

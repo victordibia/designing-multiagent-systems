@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Bot, GitBranch, SearchX, Users } from "lucide-react";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { TopBar, type Crumb } from "@/components/shell/top-bar";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AgentView } from "@/components/agent/agent-view";
@@ -197,6 +198,21 @@ function AppShell() {
     [refreshEntities]
   );
 
+  const [pendingDeleteEntity, setPendingDeleteEntity] = useState<Entity | null>(null);
+  const handleDeleteEntity = useCallback(async () => {
+    if (!pendingDeleteEntity) return;
+    try {
+      await apiClient.deleteEntity(pendingDeleteEntity.id);
+      if (selectedEntity?.id === pendingDeleteEntity.id) {
+        navigate(`/${pendingDeleteEntity.type}s`);
+      }
+      await refreshEntities();
+    } catch (e) {
+      console.error("Failed to delete entity:", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDeleteEntity, refreshEntities]);
+
   // ---- breadcrumbs ----
   const crumbs: Crumb[] = [];
   if (section && SECTION_LABEL[section]) {
@@ -314,7 +330,12 @@ function AppShell() {
 
   return (
     <SidebarProvider>
-      <AppSidebar segments={segs} entities={entities} mcpServers={mcpServers} />
+      <AppSidebar
+        segments={segs}
+        entities={entities}
+        mcpServers={mcpServers}
+        onDeleteEntity={setPendingDeleteEntity}
+      />
       <SidebarInset>
         <TopBar
           crumbs={crumbs}
@@ -338,6 +359,14 @@ function AppShell() {
             </>
           )}
         </div>
+        <ConfirmDialog
+          open={pendingDeleteEntity !== null}
+          onOpenChange={(open) => !open && setPendingDeleteEntity(null)}
+          title="Remove entity?"
+          description={`This removes "${pendingDeleteEntity?.name || pendingDeleteEntity?.id}" from the registry.`}
+          confirmLabel="Remove"
+          onConfirm={handleDeleteEntity}
+        />
       </SidebarInset>
     </SidebarProvider>
   );

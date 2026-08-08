@@ -13,6 +13,7 @@ import {
   FlaskConical,
   GitBranch,
   History,
+  Trash2,
   Users,
 } from "lucide-react";
 import {
@@ -38,6 +39,8 @@ interface AppSidebarProps {
   segments: string[];
   entities: Entity[];
   mcpServers: McpServerSummary[];
+  /** Called for entities that can be removed (gallery/memory sourced). */
+  onDeleteEntity?: (entity: Entity) => void;
 }
 
 interface EntitySectionSpec {
@@ -53,7 +56,7 @@ const ENTITY_SECTIONS: EntitySectionSpec[] = [
   { key: "workflows", label: "Workflows", icon: GitBranch, type: "workflow" },
 ];
 
-export function AppSidebar({ segments, entities, mcpServers }: AppSidebarProps) {
+export function AppSidebar({ segments, entities, mcpServers, onDeleteEntity }: AppSidebarProps) {
   const { open } = useSidebar();
   const [section, selectedId] = segments;
 
@@ -95,18 +98,38 @@ export function AppSidebar({ segments, entities, mcpServers }: AppSidebarProps) 
                   </SidebarMenuButton>
                   {sectionEntities.length > 0 && (
                     <SidebarMenuSub>
-                      {sectionEntities.map((entity) => (
-                        <li key={entity.id}>
-                          <SidebarMenuSubButton
-                            isActive={section === spec.key && selectedId === entity.id}
-                            onClick={() =>
-                              navigate(`/${spec.key}/${encodeURIComponent(entity.id)}`)
-                            }
-                          >
-                            <span className="truncate font-mono">{entity.name || entity.id}</span>
-                          </SidebarMenuSubButton>
-                        </li>
-                      ))}
+                      {sectionEntities.map((entity) => {
+                        const canDelete =
+                          onDeleteEntity &&
+                          ["memory", "github"].includes((entity as any).source);
+                        return (
+                          <li key={entity.id} className="group/entity relative">
+                            <SidebarMenuSubButton
+                              isActive={section === spec.key && selectedId === entity.id}
+                              className={cn(canDelete && "pr-6")}
+                              onClick={() =>
+                                navigate(`/${spec.key}/${encodeURIComponent(entity.id)}`)
+                              }
+                            >
+                              <span className="truncate font-mono">
+                                {entity.name || entity.id}
+                              </span>
+                            </SidebarMenuSubButton>
+                            {canDelete && (
+                              <button
+                                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-sidebar-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/entity:opacity-100"
+                                title="Remove entity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteEntity(entity);
+                                }}
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            )}
+                          </li>
+                        );
+                      })}
                     </SidebarMenuSub>
                   )}
                 </SidebarMenuItem>
