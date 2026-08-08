@@ -23,7 +23,7 @@ class MCPServerConfig:
         """Unique identifier for this server"""
 
         self.transport = transport
-        """Transport type: 'stdio', 'sse', or 'streamable-http'"""
+        """Transport type: 'stdio', 'streamable-http', 'memory', or legacy 'sse'"""
 
         self.env = env
         """Environment variables"""

@@ -13,7 +13,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -342,8 +342,6 @@ async def export_eval_run(request: Request, eval_run_id: str):
         raise HTTPException(
             status_code=404, detail="No export file available"
         )
-
-    import json
     from pathlib import Path
 
     fp = Path(file_path)

@@ -40,14 +40,14 @@ function FrameRow({ frame }: { frame: McpWireFrame }) {
           <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
         )}
         {isOut ? (
-          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-info" />
         ) : (
-          <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-green-600" />
+          <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-success" />
         )}
         <span className="font-mono text-muted-foreground shrink-0">
           {time}.{millis}
         </span>
-        <span className={cn("font-mono truncate", isOut ? "text-blue-600 dark:text-blue-400" : "")}>
+        <span className={cn("font-mono truncate", isOut ? "text-info" : "")}>
           {frameLabel(frame)}
         </span>
         {"error" in frame.message && (
@@ -78,10 +78,10 @@ export function WireLog({ frames }: { frames: McpWireFrame[] }) {
     <div className="border border-border rounded-md overflow-hidden">
       <div className="flex items-center gap-3 px-2 py-1.5 bg-muted/40 border-b border-border text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <ArrowUpRight className="h-3 w-3 text-blue-500" /> client → server
+          <ArrowUpRight className="h-3 w-3 text-info" /> client → server
         </span>
         <span className="flex items-center gap-1">
-          <ArrowDownLeft className="h-3 w-3 text-green-600" /> server → client
+          <ArrowDownLeft className="h-3 w-3 text-success" /> server → client
         </span>
         <span className="ml-auto">{frames.length} frames</span>
       </div>

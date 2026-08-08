@@ -4,12 +4,10 @@ Execution engine for PicoAgents WebUI.
 Streams raw PicoAgent events with session context management.
 """
 
-import json
 import logging
 from typing import Any, AsyncGenerator, List, Optional
 
 from .._cancellation_token import CancellationToken
-from ..context import AgentContext
 from ..messages import Message
 from ..types import AgentResponse
 from ..workflow import WorkflowRunner
@@ -112,7 +110,7 @@ class ExecutionEngine:
         except Exception as e:
             logger.error(f"Error in agent streaming execution: {e}")
             error_event = WebUIStreamEvent(
-                session_id=session_id, event={"type": "error", "message": str(e)}
+                session_id=session_id, event={"event_type": "error", "message": str(e)}
             )
             yield f"data: {error_event.model_dump_json()}\n\n"
 
@@ -163,7 +161,7 @@ class ExecutionEngine:
         except Exception as e:
             logger.error(f"Error in orchestrator streaming: {e}")
             error_event = WebUIStreamEvent(
-                session_id=session_id, event={"type": "error", "message": str(e)}
+                session_id=session_id, event={"event_type": "error", "message": str(e)}
             )
             yield f"data: {error_event.model_dump_json()}\n\n"
 
@@ -214,6 +212,6 @@ class ExecutionEngine:
         except Exception as e:
             logger.error(f"Error in workflow streaming: {e}")
             error_event = WebUIStreamEvent(
-                session_id=session_id, event={"type": "error", "message": str(e)}
+                session_id=session_id, event={"event_type": "error", "message": str(e)}
             )
             yield f"data: {error_event.model_dump_json()}\n\n"

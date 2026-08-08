@@ -1,35 +1,73 @@
 /**
- * Dialog - Simple modal dialog component
+ * Dialog - modal dialog with portal, ESC handling, scroll lock, and ARIA.
+ *
+ * Dependency-free implementation following the shadcn Dialog structure:
+ * Dialog > DialogContent (sized) > DialogHeader/DialogTitle + body.
  */
 
+import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
 interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  /** Max width of the dialog panel. */
+  size?: "md" | "lg" | "xl";
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+const sizeClass = {
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-5xl",
+};
+
+export function Dialog({ open, onOpenChange, children, size = "md" }: DialogProps) {
+  const previousFocus = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    previousFocus.current = document.activeElement as HTMLElement | null;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus.current?.focus?.();
+    };
+  }, [open, onOpenChange]);
+
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={() => onOpenChange(false)}
     >
-      {/* Backdrop - increased opacity for better distinction */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-      {/* Dialog Content - enhanced shadow and border with card background for better contrast */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative z-10 bg-card rounded-lg shadow-2xl border-2 border-border max-h-[90vh] overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        className={cn(
+          "relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-lg border bg-card shadow-2xl",
+          sizeClass[size]
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -39,7 +77,7 @@ interface DialogContentProps {
 }
 
 export function DialogContent({ children, className }: DialogContentProps) {
-  return <div className={className || "overflow-auto max-h-[90vh]"}>{children}</div>;
+  return <div className={cn("min-h-0 flex-1 overflow-y-auto", className)}>{children}</div>;
 }
 
 interface DialogHeaderProps {
@@ -50,22 +88,25 @@ interface DialogHeaderProps {
 
 export function DialogHeader({ children, onClose, className }: DialogHeaderProps) {
   return (
-    <div className={className || "sticky top-0 bg-background border-b px-6 py-4 flex items-center justify-between z-10"}>
+    <div className={cn("flex shrink-0 items-center justify-between border-b px-4 py-3", className)}>
       {children}
       {onClose && (
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="size-7" onClick={onClose} aria-label="Close">
+          <X className="size-4" />
         </Button>
       )}
     </div>
   );
 }
 
-interface DialogTitleProps {
-  children: React.ReactNode;
-  className?: string;
+export function DialogTitle({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <h2 className={cn("text-sm font-semibold", className)}>{children}</h2>;
 }
 
-export function DialogTitle({ children, className }: DialogTitleProps) {
-  return <h2 className={className || "text-lg font-semibold"}>{children}</h2>;
+export function DialogFooter({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex shrink-0 justify-end gap-2 border-t px-4 py-3", className)}>
+      {children}
+    </div>
+  );
 }

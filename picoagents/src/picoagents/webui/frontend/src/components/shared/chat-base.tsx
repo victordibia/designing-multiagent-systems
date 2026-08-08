@@ -25,7 +25,6 @@ interface ChatBaseProps {
   emptyStateCustom?: React.ReactNode; // Optional custom empty state component
   beforeInput?: React.ReactNode; // Optional content to render above input (e.g., approval banner)
   messageUsage?: Map<number, { tokens_input: number; tokens_output: number }>; // Optional token usage per message
-  sessionTotalUsage?: { tokens_input: number; tokens_output: number }; // Optional session total
 }
 
 interface MessageBubbleProps {
@@ -120,7 +119,6 @@ export function ChatBase({
   emptyStateCustom,
   beforeInput,
   messageUsage,
-  sessionTotalUsage: _sessionTotalUsage,
 }: ChatBaseProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);

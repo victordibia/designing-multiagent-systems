@@ -21,6 +21,18 @@ export class AgentMessageHandler implements MessageHandler {
     entityName: string
   ): Message[] {
     switch (event.type) {
+      case "error":
+        // Backend execution errors arrive as SSE error events
+        this.currentMessage = null;
+        return [
+          ...currentMessages,
+          {
+            role: "assistant",
+            content: `Error: ${event.data?.message || "execution failed"}`,
+            source: entityName,
+          },
+        ];
+
       case "token_chunk":
         // Handle streaming token chunks
         if (event.data?.content) {
@@ -202,73 +214,4 @@ export class OrchestratorMessageHandler implements MessageHandler {
   }
 }
 
-/**
- * Workflow Message Handler
- * Similar to agent but may have workflow-specific events
- */
-export class WorkflowMessageHandler implements MessageHandler {
-  private currentMessage: Message | null = null;
 
-  handleEvent(
-    event: StreamEvent,
-    currentMessages: Message[],
-    entityName: string
-  ): Message[] {
-    // For now, use same logic as agent
-    // Can be extended for workflow-specific behavior
-    switch (event.type) {
-      case "message":
-        if (event.data?.content) {
-          if (!this.currentMessage) {
-            this.currentMessage = {
-              role: "assistant",
-              content: "",
-              source: entityName,
-            };
-            return [...currentMessages, this.currentMessage];
-          }
-
-          this.currentMessage = {
-            ...this.currentMessage,
-            content: this.currentMessage.content + event.data.content,
-          };
-
-          return [...currentMessages.slice(0, -1), this.currentMessage];
-        }
-        break;
-
-      case "complete":
-        if (event.data?.result) {
-          this.currentMessage = {
-            role: "assistant",
-            content: event.data.result,
-            source: entityName,
-          };
-          return [...currentMessages.slice(0, -1), this.currentMessage];
-        }
-        break;
-    }
-
-    return currentMessages;
-  }
-
-  reset(): void {
-    this.currentMessage = null;
-  }
-}
-
-/**
- * Factory function to create appropriate handler for entity type
- */
-export function createMessageHandler(entityType: "agent" | "orchestrator" | "workflow"): MessageHandler {
-  switch (entityType) {
-    case "agent":
-      return new AgentMessageHandler();
-    case "orchestrator":
-      return new OrchestratorMessageHandler();
-    case "workflow":
-      return new WorkflowMessageHandler();
-    default:
-      return new AgentMessageHandler();
-  }
-}

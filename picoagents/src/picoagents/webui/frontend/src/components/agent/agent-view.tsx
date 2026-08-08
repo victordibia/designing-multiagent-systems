@@ -97,7 +97,7 @@ export function AgentView({
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Bot className="h-6 w-6 text-blue-600" />
+              <Bot className="h-6 w-6 text-info" />
               <div className="flex-1">
                 <h2 className="text-lg font-semibold">
                   {selectedAgent.name || selectedAgent.id}
@@ -116,6 +116,7 @@ export function AgentView({
             <div className="flex items-center gap-3">
               <SessionSwitcher
                 entityId={selectedAgent.id}
+                entityType="agent"
                 currentSessionId={currentSession?.id}
                 onSessionChange={handleLocalSessionChange}
               />
@@ -186,9 +187,9 @@ export function AgentView({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
               {/* Model */}
               {selectedAgent.model && (
-                <div className="bg-card border border-muted rounded p-2 shadow-sm">
+                <div className="bg-card border rounded-md p-2">
                   <div className="flex items-center gap-2">
-                    <Brain className="h-4 w-4 text-purple-600 shrink-0" />
+                    <Brain className="h-4 w-4 text-info shrink-0" />
                     <div className="min-w-0">
                       <div className="text-xs text-muted-foreground">Model</div>
                       <div className="text-sm font-medium truncate">
@@ -200,9 +201,9 @@ export function AgentView({
               )}
 
               {/* Tools */}
-              <div className="bg-card border border-muted rounded p-2 shadow-sm">
+              <div className="bg-card border rounded-md p-2">
                 <div className="flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-orange-600 shrink-0" />
+                  <Wrench className="h-4 w-4 text-warning shrink-0" />
                   <div className="min-w-0">
                     <div className="text-xs text-muted-foreground">Tools</div>
                     <div className="text-sm font-medium">
@@ -214,9 +215,9 @@ export function AgentView({
 
               {/* Memory */}
               {selectedAgent.memory_type && (
-                <div className="bg-card border border-muted rounded p-2 shadow-sm">
+                <div className="bg-card border rounded-md p-2">
                   <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-green-600 shrink-0" />
+                    <Database className="h-4 w-4 text-success shrink-0" />
                     <div className="min-w-0">
                       <div className="text-xs text-muted-foreground">
                         Memory
@@ -230,9 +231,9 @@ export function AgentView({
               )}
 
               {/* Source */}
-              <div className="bg-card border border-muted rounded p-2 shadow-sm">
+              <div className="bg-card border rounded-md p-2">
                 <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full bg-gray-600 shrink-0" />
+                  <div className="h-4 w-4 rounded-full bg-muted-foreground shrink-0" />
                   <div className="min-w-0">
                     <div className="text-xs text-muted-foreground">Source</div>
                     <div className="text-sm font-medium truncate">
@@ -271,7 +272,6 @@ export function AgentView({
           onClearMessages={handleClearMessages}
           onStop={handleStop}
           isStreaming={isStreaming}
-          sessionTotalUsage={sessionTotalUsage}
           placeholder={`Chat with ${selectedAgent.name || selectedAgent.id}...`}
           emptyStateTitle="Agent Chat"
           emptyStateDescription={`Start a conversation with this agent. It has access to ${selectedAgent.tools.length} tools and can help you with various tasks.`}

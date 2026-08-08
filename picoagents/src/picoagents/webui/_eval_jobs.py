@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .._cancellation_token import CancellationToken
@@ -55,7 +55,7 @@ class EvalJobManager:
 
         # Update DB status
         await self._store.update_eval_run_progress(
-            eval_run_id, status="cancelled", completed_at=datetime.utcnow()
+            eval_run_id, status="cancelled", completed_at=datetime.now(timezone.utc)
         )
         return True
 
@@ -75,7 +75,7 @@ class EvalJobManager:
         try:
             # Mark as running
             await self._store.update_eval_run_progress(
-                eval_run_id, status="running", started_at=datetime.utcnow()
+                eval_run_id, status="running", started_at=datetime.now(timezone.utc)
             )
 
             # Load dataset from DB → domain Dataset
@@ -134,8 +134,6 @@ class EvalJobManager:
                 raise ValueError("No valid targets found")
 
             # Create judge
-            from ..eval.judges import LLMEvalJudge
-
             judge = self._create_judge(judge_config)
 
             # Run evaluation task-by-task for progress tracking
@@ -182,6 +180,10 @@ class EvalJobManager:
                         eval_run_id, completed_tasks=completed
                     )
 
+            if cancellation_token.is_cancelled():
+                # cancel_eval_run already marked the run cancelled
+                return
+
             # Save full JSON file
             saved_path = results.save()
 
@@ -190,14 +192,14 @@ class EvalJobManager:
                 eval_run_id,
                 status="completed",
                 file_path=str(saved_path),
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
             )
 
         except asyncio.CancelledError:
             await self._store.update_eval_run_progress(
                 eval_run_id,
                 status="cancelled",
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
             )
         except Exception as e:
             logger.exception(f"Eval run {eval_run_id} failed")
@@ -205,8 +207,16 @@ class EvalJobManager:
                 eval_run_id,
                 status="error",
                 error_message=str(e),
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
             )
+
+    async def shutdown(self) -> None:
+        """Cancel all active eval jobs and wait for their tasks to finish."""
+        for token in list(self._cancellation_tokens.values()):
+            token.cancel()
+        tasks = list(self._active_jobs.values())
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     def _create_judge(self, judge_config: Optional[Dict[str, Any]]):
         """Create a judge from config dict."""

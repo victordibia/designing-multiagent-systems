@@ -21,12 +21,14 @@ import type { SessionInfo } from "@/types";
 
 interface SessionSwitcherProps {
   entityId: string;
+  entityType: "agent" | "orchestrator";
   currentSessionId?: string;
   onSessionChange: (sessionId: string | undefined) => void;
 }
 
 export function SessionSwitcher({
   entityId,
+  entityType,
   currentSessionId,
   onSessionChange,
 }: SessionSwitcherProps) {
@@ -56,7 +58,7 @@ export function SessionSwitcher({
   const handleNewSession = async () => {
     try {
       // Create a new empty session on the backend
-      const newSession = await apiClient.createSession(entityId, "agent");
+      const newSession = await apiClient.createSession(entityId, entityType);
       // Refresh session list
       await loadSessions();
       // Switch to the new session (use .id not .session_id)
@@ -112,17 +114,17 @@ export function SessionSwitcher({
           <MessageSquare className="h-4 w-4" />
           {currentSession ? (
             <span className="max-w-[150px] truncate">
-              Session ({currentSession.message_count} msgs)
+              Conversation ({currentSession.message_count} msgs)
             </span>
           ) : (
-            <span>New Session</span>
+            <span>New conversation</span>
           )}
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Conversation Sessions</span>
+          <span>Conversations</span>
           <Button
             variant="ghost"
             size="sm"
@@ -143,7 +145,7 @@ export function SessionSwitcher({
           <div className="px-2 py-8 text-center">
             <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             <div className="text-sm text-muted-foreground">
-              No sessions yet
+              No conversations yet
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               Start a conversation to create one

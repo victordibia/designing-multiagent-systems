@@ -34,13 +34,7 @@ from ._integration import create_mcp_tools
 from ._tap import WireFrame, WireTap
 from ._tool import MCPTool
 
-try:
-    from ._client import MCPClientManager
-
-    MCP_CLIENT_AVAILABLE = True
-except ImportError:
-    MCPClientManager = None  # type: ignore
-    MCP_CLIENT_AVAILABLE = False
+from ._client import MCPClientManager
 
 __all__ = [
     "MCPTool",
@@ -53,5 +47,4 @@ __all__ = [
     "WireFrame",
     "WireTap",
     "create_mcp_tools",
-    "MCP_CLIENT_AVAILABLE",
 ]

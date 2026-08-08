@@ -7,9 +7,8 @@ Provides pluggable storage backends for conversation sessions.
 import json
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..context import AgentContext
 
@@ -30,7 +29,7 @@ class SessionStore(ABC):
         pass
 
     @abstractmethod
-    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, any]]:
+    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """List sessions with metadata, optionally filtered by entity."""
         pass
 
@@ -57,7 +56,7 @@ class InMemorySessionStore(SessionStore):
     async def save(self, session_id: str, context: AgentContext) -> None:
         self._sessions[session_id] = context
 
-    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, any]]:
+    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, Any]]:
         sessions = []
         for sid, ctx in self._sessions.items():
             # Filter by entity_id if provided
@@ -128,7 +127,7 @@ class FileSessionStore(SessionStore):
         except Exception as e:
             logger.error(f"Error saving session {session_id}: {e}")
 
-    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, any]]:
+    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, Any]]:
         sessions = []
         for path in self.storage_dir.glob("*.json"):
             session_id = path.stem
@@ -206,7 +205,7 @@ class CachedFileSessionStore(SessionStore):
         # Persist to file
         await self._file_store.save(session_id, context)
 
-    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, any]]:
+    async def list(self, entity_id: Optional[str] = None) -> List[Dict[str, Any]]:
         return await self._file_store.list(entity_id)
 
     async def delete(self, session_id: str) -> bool:

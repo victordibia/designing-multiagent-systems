@@ -3,12 +3,13 @@ MCPClientManager - Manages connections to MCP servers (mcp SDK 2.0).
 
 This module handles server lifecycle, discovery, and tool creation for
 multiple MCP servers across different transports, using the high-level
-`mcp.client.Client` from SDK 2.0 (protocol 2026-07-28). In `auto` mode the
-client negotiates statelessly via `server/discover` and falls back to the
-legacy `initialize` handshake for older servers.
+`mcp.client.Client` from SDK 2.0 (protocol 2026-07-28). The SDK's Client
+negotiates the connection itself (stateless `server/discover` on 2026-era
+servers, legacy handshake otherwise).
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 
@@ -19,6 +20,8 @@ from ._config import MCPServerConfig
 from ._tap import FrameCallback, WireFrame, WireTap
 from ._tool import MCPTool
 from ._transports import build_transport
+
+logger = logging.getLogger(__name__)
 
 ElicitationHandler = Callable[[str, Any], Awaitable[Any]]
 """Async handler invoked as (server_id, ElicitRequestParams) -> ElicitResult.
@@ -119,7 +122,7 @@ class MCPClientManager:
 
         This method:
         1. Builds the configured transport (optionally wire-tapped)
-        2. Negotiates the connection (`server/discover`, legacy fallback)
+        2. Starts a runner task that owns the SDK client's lifecycle
         3. Discovers available tools and creates MCPTool instances
 
         Args:
@@ -343,7 +346,8 @@ class MCPClientManager:
             stop.set()
             try:
                 await asyncio.wait_for(asyncio.shield(task), timeout=10)
-            except (asyncio.TimeoutError, Exception):
+            except Exception:
+                logger.warning(f"MCP client for '{server_id}' did not close cleanly; cancelling")
                 task.cancel()  # Best effort cleanup
 
         self._taps.pop(server_id, None)

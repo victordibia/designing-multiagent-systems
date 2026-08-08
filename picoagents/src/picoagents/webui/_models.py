@@ -5,7 +5,7 @@ Minimal WebUI-specific models - reuse PicoAgents types everywhere else!
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 
 class EntityInfo(BaseModel):
@@ -75,8 +75,7 @@ class WebUIStreamEvent(BaseModel):
         description="The actual PicoAgent event (AgentEvent, Message, etc.)"
     )
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class HealthResponse(BaseModel):
@@ -95,9 +94,6 @@ class AddExampleRequest(BaseModel):
     )
     github_path: str = Field(
         description="Path to example file in GitHub repo (e.g., 'examples/agents/basic-agent.py')"
-    )
-    category: str = Field(
-        description="Category: 'agent', 'workflow', or 'orchestrator'"
     )
 
 

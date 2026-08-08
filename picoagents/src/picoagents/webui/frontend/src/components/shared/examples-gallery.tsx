@@ -103,11 +103,11 @@ const getCategoryIcon = (category: string) => {
 const getDifficultyColor = (difficulty: string) => {
   switch (difficulty) {
     case "beginner":
-      return "bg-green-500/10 text-green-500 border-green-500/20";
+      return "bg-success/10 text-success border-success/40";
     case "intermediate":
-      return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      return "bg-warning/10 text-warning border-warning/40";
     case "advanced":
-      return "bg-red-500/10 text-red-500 border-red-500/20";
+      return "bg-destructive/10 text-destructive border-destructive/40";
     default:
       return "bg-muted text-muted-foreground";
   }
@@ -130,7 +130,6 @@ export function ExamplesGallery({ onExampleLoaded }: ExamplesGalleryProps) {
       const entity = await apiClient.addExample({
         example_id: example.id,
         github_path: example.githubPath,
-        category: example.category,
       });
 
       setLoadedExamples((prev) => new Set([...prev, example.id]));
@@ -212,10 +211,10 @@ export function ExamplesGallery({ onExampleLoaded }: ExamplesGalleryProps) {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-8">
+    <div className="w-full max-w-6xl p-6">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">Try Example Agents, Workflows & Orchestrators</h2>
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-2">Try Example Agents, Workflows & Orchestrators</h2>
         <p className="text-muted-foreground">
           Get started by loading an example from the repository
         </p>

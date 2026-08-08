@@ -177,13 +177,13 @@ export function WorkflowView({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case "running":
-        return <Clock className="h-4 w-4 text-blue-600 animate-spin" />;
+        return <Clock className="h-4 w-4 text-info animate-spin" />;
       case "failed":
-        return <AlertCircle className="h-4 w-4 text-red-600" />;
+        return <AlertCircle className="h-4 w-4 text-destructive" />;
       default:
-        return <div className="h-4 w-4 rounded-full border-2 border-gray-300" />;
+        return <div className="h-4 w-4 rounded-full border-2 border-border" />;
     }
   };
 
@@ -216,7 +216,7 @@ export function WorkflowView({
                 <Label htmlFor={key} className="text-sm font-medium">
                   {key}
                   {schema.required?.includes(key) && (
-                    <span className="text-red-500 ml-1">*</span>
+                    <span className="text-destructive ml-1">*</span>
                   )}
                 </Label>
                 <Input
@@ -246,7 +246,7 @@ export function WorkflowView({
       <div className="border-b p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Workflow className="h-6 w-6 text-green-600" />
+            <Workflow className="h-6 w-6 text-success" />
             <div>
               <h2 className="text-lg font-semibold">
                 {selectedWorkflow.name || selectedWorkflow.id}
@@ -388,7 +388,7 @@ export function WorkflowView({
           <Card>
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-4 w-4 text-success" />
                 Execution Result
               </CardTitle>
             </CardHeader>

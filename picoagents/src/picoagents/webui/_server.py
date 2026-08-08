@@ -19,7 +19,6 @@ from pydantic import BaseModel, Field
 from .._cancellation_token import CancellationToken
 from ..context import ToolApprovalResponse
 from ..messages import Message
-from ..types import AgentResponse
 from ._execution import ExecutionEngine
 from ._models import AddExampleRequest, Entity, HealthResponse
 from ._registry import EntityRegistry
@@ -98,11 +97,27 @@ class PicoAgentsWebUIServer:
 
                 app.state.eval_jobs = EvalJobManager(store)
                 logger.info("Persistence store initialized")
+            try:
+                from picoagents.tools import MCP_AVAILABLE
+
+                if MCP_AVAILABLE:
+                    from ._mcp_playground import McpPlayground
+
+                    app.state.mcp_playground = McpPlayground()
+            except ImportError:
+                pass
             yield
             # Shutdown
             playground = getattr(app.state, "mcp_playground", None)
             if playground is not None:
                 await playground.shutdown()
+            eval_jobs = getattr(app.state, "eval_jobs", None)
+            if eval_jobs is not None:
+                await eval_jobs.shutdown()
+            if store is not None:
+                close = getattr(store, "close", None)
+                if close is not None:
+                    await close()
             logger.info("Shutting down PicoAgents WebUI Server")
 
         app = FastAPI(
@@ -192,46 +207,6 @@ class PicoAgentsWebUIServer:
                 raise
             except Exception as e:
                 logger.error(f"Error deleting entity {entity_id}: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @app.post("/api/entities/{entity_id}/run", response_model=AgentResponse)
-        async def run_entity(entity_id: str, request: RunEntityRequest):
-            """Execute an entity (non-streaming)."""
-            entity_obj = self.registry.get_entity_object(entity_id)
-            if not entity_obj:
-                raise HTTPException(
-                    status_code=404, detail=f"Entity {entity_id} not found"
-                )
-
-            entity_info = self.registry.get_entity_info(entity_id)
-            if not entity_info:
-                raise HTTPException(
-                    status_code=404, detail=f"Entity info for {entity_id} not found"
-                )
-
-            try:
-                if entity_info.type == "agent":
-                    if not request.messages:
-                        raise HTTPException(
-                            status_code=400,
-                            detail="Messages required for agent execution",
-                        )
-
-                    return await self.execution_engine.execute_agent(
-                        agent=entity_obj,
-                        messages=cast(List[Any], request.messages),
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Non-streaming execution not supported for {entity_info.type}",
-                    )
-
-            except HTTPException:
-                # Re-raise HTTP exceptions as-is
-                raise
-            except Exception as e:
-                logger.error(f"Error executing entity {entity_id}: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
         @app.post("/api/entities/{entity_id}/run/stream")
@@ -458,9 +433,18 @@ class PicoAgentsWebUIServer:
         async def add_example(request: AddExampleRequest):
             """Add an example from GitHub repository."""
             try:
+                import re as _re
                 import tempfile
+                import urllib.error
                 import urllib.request
                 from pathlib import Path
+
+                if not _re.fullmatch(r"[a-zA-Z0-9_-]+", request.example_id):
+                    raise HTTPException(status_code=400, detail="Invalid example_id")
+                if ".." in request.github_path or not _re.fullmatch(
+                    r"[a-zA-Z0-9_/.-]+\.py", request.github_path
+                ):
+                    raise HTTPException(status_code=400, detail="Invalid github_path")
 
                 # GitHub raw content URL
                 # Note: Examples are at the root of the repository, not in picoagents subdirectory

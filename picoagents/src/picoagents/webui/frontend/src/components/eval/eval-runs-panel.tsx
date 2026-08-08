@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { StatusBadge } from "@/components/eval/score-badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { EvalRunDetail } from "@/components/eval/eval-run-detail";
 import { evalApiClient } from "@/services/eval-api";
 import {

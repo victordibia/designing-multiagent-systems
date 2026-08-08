@@ -56,48 +56,48 @@ function AttachmentPreview({ attachment, onRemove }: AttachmentPreviewProps) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="flex items-center justify-center w-full h-full bg-gray-200">
-            <Image className="h-6 w-6 text-gray-400" />
+          <div className="flex items-center justify-center w-full h-full bg-muted">
+            <Image className="h-6 w-6 text-muted-foreground" />
           </div>
         );
 
       case "pdf":
         return (
-          <div className="flex flex-col items-center justify-center w-full h-full bg-red-50">
-            <FileText className="h-6 w-6 text-red-500 mb-1" />
-            <span className="text-xs text-red-600">PDF</span>
+          <div className="flex flex-col items-center justify-center w-full h-full bg-destructive/10">
+            <FileText className="h-6 w-6 text-destructive mb-1" />
+            <span className="text-xs text-destructive">PDF</span>
           </div>
         );
 
       case "audio":
         return (
-          <div className="flex flex-col items-center justify-center w-full h-full bg-green-50">
-            <Music className="h-6 w-6 text-green-500 mb-1" />
-            <span className="text-xs text-green-600">AUDIO</span>
+          <div className="flex flex-col items-center justify-center w-full h-full bg-success/10">
+            <Music className="h-6 w-6 text-success mb-1" />
+            <span className="text-xs text-success">AUDIO</span>
           </div>
         );
 
       case "video":
         return (
-          <div className="flex flex-col items-center justify-center w-full h-full bg-blue-50">
-            <Video className="h-6 w-6 text-blue-500 mb-1" />
-            <span className="text-xs text-blue-600">VIDEO</span>
+          <div className="flex flex-col items-center justify-center w-full h-full bg-info/10">
+            <Video className="h-6 w-6 text-info mb-1" />
+            <span className="text-xs text-info">VIDEO</span>
           </div>
         );
 
       case "text":
         return (
-          <div className="flex flex-col items-center justify-center w-full h-full bg-yellow-50">
-            <FileText className="h-6 w-6 text-yellow-600 mb-1" />
-            <span className="text-xs text-yellow-700">TEXT</span>
+          <div className="flex flex-col items-center justify-center w-full h-full bg-warning/10">
+            <FileText className="h-6 w-6 text-warning mb-1" />
+            <span className="text-xs text-warning">TEXT</span>
           </div>
         );
 
       default:
         return (
-          <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100">
-            <File className="h-6 w-6 text-gray-500 mb-1" />
-            <span className="text-xs text-gray-600">FILE</span>
+          <div className="flex flex-col items-center justify-center w-full h-full bg-muted">
+            <File className="h-6 w-6 text-muted-foreground mb-1" />
+            <span className="text-xs text-muted-foreground">FILE</span>
           </div>
         );
     }

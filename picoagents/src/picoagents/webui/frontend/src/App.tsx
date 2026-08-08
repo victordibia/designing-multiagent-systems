@@ -1,556 +1,344 @@
 /**
- * PicoAgents WebUI App - Entity orchestrator for agent/orchestrator/workflow interactions
- * Features: Entity selection, layout management, debug coordination
+ * PicoAgents WebUI - app shell.
+ *
+ * Hash-routed sections in a collapsible sidebar (Build / Observe / Tools),
+ * top bar with breadcrumb + debug-dock + theme controls, and a resizable
+ * debug rail on entity pages.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { AppHeader } from "@/components/shared/app-header";
-import { DebugPanel } from "@/components/shared/debug-panel";
+import { useCallback, useEffect, useState } from "react";
+import { Bot, GitBranch, SearchX, Users } from "lucide-react";
+import { AppSidebar } from "@/components/shell/app-sidebar";
+import { TopBar, type Crumb } from "@/components/shell/top-bar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AgentView } from "@/components/agent/agent-view";
 import { OrchestratorView } from "@/components/orchestrator/orchestrator-view";
 import { WorkflowView } from "@/components/workflow/workflow-view";
 import { RunsView } from "@/components/runs/runs-view";
 import { EvalView } from "@/components/eval/eval-view";
 import { McpView } from "@/components/mcp/mcp-view";
-import { LoadingState } from "@/components/ui/loading-state";
 import { ExamplesGallery } from "@/components/shared/examples-gallery";
+import { DebugPanel } from "@/components/shared/debug-panel";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RouterProvider, navigate, useSegments } from "@/lib/router";
 import { apiClient } from "@/services/api";
-import { ChevronLeft } from "lucide-react";
+import { mcpApiClient } from "@/services/mcp-api";
 import type {
-  Entity,
   AgentInfo,
+  Entity,
   OrchestratorInfo,
-  WorkflowInfo,
-  AppState,
-  StreamEvent,
   SessionInfo,
+  StreamEvent,
+  WorkflowInfo,
 } from "@/types";
+import type { McpServerSummary } from "@/types/mcp";
 
-type AppMode = "entities" | "runs" | "evaluate" | "mcp";
+const SECTION_TYPE: Record<string, Entity["type"]> = {
+  agents: "agent",
+  orchestrators: "orchestrator",
+  workflows: "workflow",
+};
 
+const SECTION_LABEL: Record<string, string> = {
+  agents: "Agents",
+  orchestrators: "Orchestrators",
+  workflows: "Workflows",
+  gallery: "Examples",
+  history: "History",
+  evaluation: "Evaluation",
+  mcp: "MCP Playground",
+};
 
 export default function App() {
-  const [appMode, setAppMode] = useState<AppMode>("entities");
-  const [appState, setAppState] = useState<AppState>({
-    entities: [],
-    agents: [],
-    orchestrators: [],
-    workflows: [],
-    isLoading: true,
-  });
+  return (
+    <RouterProvider>
+      <AppShell />
+    </RouterProvider>
+  );
+}
 
-  // Session cache: entity_id -> SessionInfo
+function AppShell() {
+  const segs = useSegments();
+  const [section, subId] = segs;
+
+  // ---- entities ----
+  const [entities, setEntities] = useState<Entity[]>([]);
+  const [entitiesLoading, setEntitiesLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const refreshEntities = useCallback(async () => {
+    try {
+      const list = await apiClient.getEntities();
+      setEntities(list);
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load entities");
+    } finally {
+      setEntitiesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshEntities();
+  }, [refreshEntities]);
+
+  // ---- mcp servers (sidebar + playground share this list) ----
+  const [mcpServers, setMcpServers] = useState<McpServerSummary[]>([]);
+  const refreshMcpServers = useCallback(async () => {
+    try {
+      setMcpServers(await mcpApiClient.listServers());
+    } catch {
+      setMcpServers([]);
+    }
+  }, []);
+  useEffect(() => {
+    refreshMcpServers();
+  }, [refreshMcpServers]);
+
+  // ---- sessions (per entity) ----
   const [sessionCache, setSessionCache] = useState<Record<string, SessionInfo>>({});
 
+  // ---- debug panel ----
   const [debugEvents, setDebugEvents] = useState<StreamEvent[]>([]);
-  const [debugPanelOpen, setDebugPanelOpen] = useState(true);
-  const [debugPanelWidth, setDebugPanelWidth] = useState(() => {
-    // Initialize from localStorage or default to 320
-    const savedWidth = localStorage.getItem("debugPanelWidth");
-    return savedWidth ? parseInt(savedWidth, 10) : 320;
+  const [debugOpen, setDebugOpen] = useState(
+    () => localStorage.getItem("debugPanelOpen") !== "false"
+  );
+  const [debugWidth, setDebugWidth] = useState(() => {
+    const saved = localStorage.getItem("debugPanelWidth");
+    return saved ? parseInt(saved, 10) : 320;
   });
-  const [isResizing, setIsResizing] = useState(false);
-
-  // Initialize app - load all entities
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load all entities from unified endpoint
-        const entities = await apiClient.getEntities();
+    localStorage.setItem("debugPanelOpen", String(debugOpen));
+  }, [debugOpen]);
+  useEffect(() => {
+    localStorage.setItem("debugPanelWidth", String(debugWidth));
+  }, [debugWidth]);
 
-        // Separate by type for convenience
-        const agents = entities.filter((e): e is AgentInfo => e.type === "agent");
-        const orchestrators = entities.filter((e): e is OrchestratorInfo => e.type === "orchestrator");
-        const workflows = entities.filter((e): e is WorkflowInfo => e.type === "workflow");
-
-        setAppState((prev) => ({
-          ...prev,
-          entities,
-          agents,
-          orchestrators,
-          workflows,
-          selectedEntity: entities.length > 0 ? entities[0] : undefined,
-          isLoading: false,
-        }));
-      } catch (error) {
-        console.error("Failed to load entities:", error);
-        setAppState((prev) => ({
-          ...prev,
-          error: error instanceof Error ? error.message : "Failed to load entities",
-          isLoading: false,
-        }));
-      }
-    };
-
-    loadData();
+  const handleDebugEvent = useCallback((event: StreamEvent) => {
+    setDebugEvents((prev) => [...prev.slice(-499), event]);
   }, []);
 
-  // Load session for initially selected entity
-  useEffect(() => {
-    const loadInitialSession = async () => {
-      if (appState.selectedEntity && !appState.currentSession) {
-        // Check if we have a cached session
-        const cachedSession = sessionCache[appState.selectedEntity.id];
-
-        if (cachedSession) {
-          setAppState((prev) => ({
-            ...prev,
-            currentSession: cachedSession,
-          }));
-        } else {
-          // No cached session - get or create one
-          try {
-            const session = await apiClient.getOrCreateSession(
-              appState.selectedEntity.id,
-              appState.selectedEntity.type
-            );
-
-            setSessionCache((prev) => ({
-              ...prev,
-              [appState.selectedEntity!.id]: session,
-            }));
-
-            setAppState((prev) => ({
-              ...prev,
-              currentSession: session,
-            }));
-          } catch (error) {
-            console.error("Failed to load initial session:", error);
-          }
-        }
-      }
-    };
-
-    loadInitialSession();
-  }, [appState.selectedEntity, appState.currentSession, sessionCache]);
-
-  // Save debug panel width to localStorage
-  useEffect(() => {
-    localStorage.setItem("debugPanelWidth", debugPanelWidth.toString());
-  }, [debugPanelWidth]);
-
-  // Handle resize drag
-  const handleMouseDown = useCallback(
+  const startResize = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      setIsResizing(true);
-
       const startX = e.clientX;
-      const startWidth = debugPanelWidth;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        const deltaX = startX - e.clientX; // Subtract because we're dragging from right
-        const newWidth = Math.max(
-          200,
-          Math.min(window.innerWidth * 0.5, startWidth + deltaX)
+      const startWidth = debugWidth;
+      const onMove = (move: MouseEvent) => {
+        const next = Math.max(
+          240,
+          Math.min(window.innerWidth * 0.5, startWidth + (startX - move.clientX))
         );
-        setDebugPanelWidth(newWidth);
+        setDebugWidth(next);
       };
-
-      const handleMouseUp = () => {
-        setIsResizing(false);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
       };
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
     },
-    [debugPanelWidth]
+    [debugWidth]
   );
 
-  // Handle double-click to collapse
-  const handleDoubleClick = useCallback(() => {
-    setDebugPanelOpen(false);
-  }, []);
+  // ---- routing ----
+  const entityType = SECTION_TYPE[section];
+  const selectedEntity =
+    entityType && subId ? entities.find((e) => e.type === entityType && e.id === subId) : undefined;
+  const isEntityPage = Boolean(selectedEntity);
 
-  // Handle entity selection
-  const handleEntitySelect = useCallback(async (entity: Entity) => {
-    // Check if we already have a cached session for this entity
-    const cachedSession = sessionCache[entity.id];
-
-    if (cachedSession) {
-      // Use cached session
-      setAppState((prev) => ({
-        ...prev,
-        selectedEntity: entity,
-        currentSession: cachedSession,
-      }));
-    } else {
-      // No cached session - get or create one from backend
-      try {
-        const session = await apiClient.getOrCreateSession(entity.id, entity.type);
-
-        // Cache it
-        setSessionCache((prev) => ({
-          ...prev,
-          [entity.id]: session,
-        }));
-
-        // Set in app state
-        setAppState((prev) => ({
-          ...prev,
-          selectedEntity: entity,
-          currentSession: session,
-        }));
-      } catch (error) {
-        console.error("Failed to get/create session:", error);
-        // Fallback - set entity without session
-        setAppState((prev) => ({
-          ...prev,
-          selectedEntity: entity,
-          currentSession: undefined,
-        }));
-      }
+  // Redirect "/" to /agents; auto-open the first entity on bare type routes
+  useEffect(() => {
+    if (!section) {
+      navigate("/agents", { replace: true });
+      return;
     }
+    if (entityType && !subId && !entitiesLoading) {
+      const first = entities.find((e) => e.type === entityType);
+      if (first) navigate(`/${section}/${encodeURIComponent(first.id)}`, { replace: true });
+    }
+  }, [section, subId, entityType, entities, entitiesLoading]);
 
-    // Clear debug events when switching entities
+  // Ensure a session exists for the routed entity; clear debug on change
+  useEffect(() => {
     setDebugEvents([]);
-  }, [sessionCache]);
+    if (!selectedEntity || selectedEntity.type === "workflow") return;
+    if (sessionCache[selectedEntity.id]) return;
+    let cancelled = false;
+    apiClient
+      .getOrCreateSession(selectedEntity.id, selectedEntity.type)
+      .then((session) => {
+        if (!cancelled) {
+          setSessionCache((prev) => ({ ...prev, [selectedEntity.id]: session }));
+        }
+      })
+      .catch((e) => console.error("Failed to load session:", e));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEntity?.id]);
 
-  // Handle session changes (when user manually switches sessions)
-  const handleSessionChange = useCallback((session: SessionInfo) => {
-    setAppState((prev) => ({
-      ...prev,
-      currentSession: session,
-    }));
+  const handleSessionChange = useCallback(
+    (session: SessionInfo) => {
+      if (selectedEntity) {
+        setSessionCache((prev) => ({ ...prev, [selectedEntity.id]: session }));
+      }
+    },
+    [selectedEntity]
+  );
 
-    // Update cache if we have a selected entity
-    if (appState.selectedEntity) {
-      setSessionCache((prev) => ({
-        ...prev,
-        [appState.selectedEntity!.id]: session,
-      }));
-    }
-  }, [appState.selectedEntity]);
+  const handleExampleLoaded = useCallback(
+    async (entity: Entity) => {
+      await refreshEntities();
+      const sectionKey = `${entity.type}s`;
+      navigate(`/${sectionKey}/${encodeURIComponent(entity.id)}`);
+    },
+    [refreshEntities]
+  );
 
-  // Handle debug events from active view
-  const handleDebugEvent = useCallback((event: StreamEvent) => {
-    setDebugEvents((prev) => [...prev, event]);
-  }, []);
-
-  // Handle example loaded from gallery
-  const handleExampleLoaded = useCallback((entity: Entity) => {
-    setAppState((prev) => {
-      // Add to entities list if not already present
-      const entityExists = prev.entities.some((e) => e.id === entity.id);
-      const newEntities = entityExists ? prev.entities : [...prev.entities, entity];
-
-      // Separate by type
-      const agents = newEntities.filter((e): e is AgentInfo => e.type === "agent");
-      const orchestrators = newEntities.filter((e): e is OrchestratorInfo => e.type === "orchestrator");
-      const workflows = newEntities.filter((e): e is WorkflowInfo => e.type === "workflow");
-
-      return {
-        ...prev,
-        entities: newEntities,
-        agents,
-        orchestrators,
-        workflows,
-        selectedEntity: entity, // Auto-select the newly loaded entity
-      };
+  // ---- breadcrumbs ----
+  const crumbs: Crumb[] = [];
+  if (section && SECTION_LABEL[section]) {
+    crumbs.push({
+      label: SECTION_LABEL[section],
+      href: section === "evaluation" ? "/evaluation/runs" : `/${section}`,
     });
-
-    // Clear debug events for the new entity
-    setDebugEvents([]);
-  }, []);
-
-  // Handle entity deletion
-  const handleDeleteEntity = useCallback(async (entity: Entity) => {
-    try {
-      await apiClient.deleteEntity(entity.id);
-
-      setAppState((prev) => {
-        // Remove from entities list
-        const newEntities = prev.entities.filter((e) => e.id !== entity.id);
-
-        // Separate by type
-        const agents = newEntities.filter((e): e is AgentInfo => e.type === "agent");
-        const orchestrators = newEntities.filter((e): e is OrchestratorInfo => e.type === "orchestrator");
-        const workflows = newEntities.filter((e): e is WorkflowInfo => e.type === "workflow");
-
-        // If deleted entity was selected, select the first available entity or undefined
-        const selectedEntity = prev.selectedEntity?.id === entity.id
-          ? (newEntities.length > 0 ? newEntities[0] : undefined)
-          : prev.selectedEntity;
-
-        return {
-          ...prev,
-          entities: newEntities,
-          agents,
-          orchestrators,
-          workflows,
-          selectedEntity,
-        };
-      });
-
-      // Clear debug events if the deleted entity was selected
-      if (appState.selectedEntity?.id === entity.id) {
-        setDebugEvents([]);
-      }
-    } catch (error) {
-      console.error("Failed to delete entity:", error);
-      setAppState((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error.message : "Failed to delete entity",
-      }));
+    if (selectedEntity) {
+      crumbs.push({ label: selectedEntity.name || selectedEntity.id });
+    } else if (section === "evaluation" && subId) {
+      crumbs.push({ label: subId.charAt(0).toUpperCase() + subId.slice(1) });
+    } else if (section === "mcp" && subId) {
+      crumbs.push({ label: subId });
+    } else if (section === "history" && subId) {
+      crumbs.push({ label: subId.slice(0, 12) });
     }
-  }, [appState.selectedEntity]);
-
-  // Show loading state while initializing
-  if (appState.isLoading) {
-    return (
-      <div className="h-screen flex flex-col bg-background">
-        {/* Top Bar - Skeleton */}
-        <header className="flex h-14 items-center gap-4 border-b px-4">
-          <div className="w-64 h-9 bg-muted animate-pulse rounded-md" />
-          <div className="flex items-center gap-2 ml-auto">
-            <div className="w-8 h-8 bg-muted animate-pulse rounded-md" />
-            <div className="w-8 h-8 bg-muted animate-pulse rounded-md" />
-          </div>
-        </header>
-
-        {/* Loading Content */}
-        <LoadingState
-          message="Initializing PicoAgents WebUI..."
-          description="Discovering agents, orchestrators, and workflows"
-          fullPage={true}
-        />
-      </div>
-    );
   }
 
-  // Show error state if loading failed (only blocks entities mode)
-  if (appState.error && appMode === "entities") {
-    return (
-      <div className="h-screen flex flex-col bg-background">
-        <AppHeader
-          entities={[]}
-          selectedEntity={undefined}
-          onSelect={() => {}}
-          isLoading={false}
-          appMode={appMode}
-          onAppModeChange={setAppMode}
-        />
-
-        {/* Error Content */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4 max-w-md">
-            <div className="text-destructive text-lg font-medium">
-              Failed to load agents, orchestrators, and workflows
-            </div>
-            <p className="text-muted-foreground text-sm">{appState.error}</p>
-            <Button onClick={() => window.location.reload()} variant="outline">
-              Retry
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Runs and Evaluate modes work regardless of entities
-  if (appMode === "runs") {
-    return (
-      <div className="h-screen flex flex-col bg-background">
-        <AppHeader
-          entities={appState.entities}
-          selectedEntity={appState.selectedEntity}
-          onSelect={handleEntitySelect}
-          isLoading={appState.isLoading}
-          onDeleteEntity={handleDeleteEntity}
-          appMode={appMode}
-          onAppModeChange={setAppMode}
-        />
-        <div className="flex-1 overflow-hidden">
-          <RunsView />
-        </div>
-      </div>
-    );
-  }
-
-  if (appMode === "evaluate") {
-    return (
-      <div className="h-screen flex flex-col bg-background">
-        <AppHeader
-          entities={appState.entities}
-          selectedEntity={appState.selectedEntity}
-          onSelect={handleEntitySelect}
-          isLoading={appState.isLoading}
-          onDeleteEntity={handleDeleteEntity}
-          appMode={appMode}
-          onAppModeChange={setAppMode}
-        />
-        <div className="flex-1 overflow-hidden">
-          <EvalView />
-        </div>
-      </div>
-    );
-  }
-
-  if (appMode === "mcp") {
-    return (
-      <div className="h-screen flex flex-col bg-background">
-        <AppHeader
-          entities={appState.entities}
-          selectedEntity={appState.selectedEntity}
-          onSelect={handleEntitySelect}
-          isLoading={appState.isLoading}
-          onDeleteEntity={handleDeleteEntity}
-          appMode={appMode}
-          onAppModeChange={setAppMode}
-        />
-        <div className="flex-1 overflow-hidden">
-          <McpView />
-        </div>
-      </div>
-    );
-  }
-
-  // Show empty state if no entities are available (entities mode)
-  if (
-    !appState.isLoading &&
-    appState.entities.length === 0
-  ) {
-    return (
-      <div className="h-screen flex flex-col bg-background">
-        <AppHeader
-          entities={[]}
-          selectedEntity={undefined}
-          onSelect={() => {}}
-          isLoading={false}
-          appMode={appMode}
-          onAppModeChange={setAppMode}
-        />
-
-        {/* Empty State Content - Show Gallery */}
-        <div className="flex-1 overflow-auto">
-          {/* Friendly Message */}
-          <div className="max-w-6xl mx-auto px-8 pt-8 pb-4">
-            <div className="bg-muted/50 border border-border rounded-lg p-6 text-center">
-              <h2 className="text-xl font-semibold mb-2">
-                No agents, orchestrators, or workflows found
-              </h2>
-              <p className="text-muted-foreground">
-                We didn't discover any components in your directory. Try one from our sample gallery below to get started!
-              </p>
-            </div>
-          </div>
-
-          <ExamplesGallery onExampleLoaded={handleExampleLoaded} />
-        </div>
-      </div>
-    );
-  }
-
-  // Render entity-specific view
-  const renderEntityView = () => {
-    if (!appState.selectedEntity) {
+  // ---- content ----
+  const renderContent = () => {
+    if (entitiesLoading && entityType) {
       return (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Select an agent, orchestrator, or workflow to get started.
+        <div className="space-y-3 p-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+          <Skeleton className="h-40 w-full max-w-3xl" />
         </div>
       );
     }
 
-    switch (appState.selectedEntity.type) {
-      case "agent":
+    if (loadError && entityType) {
+      return (
+        <EmptyState
+          icon={SearchX}
+          title="Failed to load"
+          description={loadError}
+        />
+      );
+    }
+
+    if (entityType && subId && !selectedEntity) {
+      return (
+        <EmptyState
+          icon={SearchX}
+          title="Not found"
+          description={`No ${entityType} named "${subId}". Pick one from the sidebar.`}
+        />
+      );
+    }
+
+    if (entityType && !subId) {
+      const icon = section === "agents" ? Bot : section === "orchestrators" ? Users : GitBranch;
+      return (
+        <EmptyState
+          icon={icon}
+          title={`No ${SECTION_LABEL[section].toLowerCase()} yet`}
+          description={
+            <>
+              Nothing was discovered in your entities directory. Load one from
+              the <a className="underline" href="#/gallery">examples gallery</a> to get started.
+            </>
+          }
+        />
+      );
+    }
+
+    if (selectedEntity?.type === "agent") {
+      return (
+        <AgentView
+          selectedAgent={selectedEntity as AgentInfo}
+          currentSession={sessionCache[selectedEntity.id]}
+          onSessionChange={handleSessionChange}
+          onDebugEvent={handleDebugEvent}
+        />
+      );
+    }
+    if (selectedEntity?.type === "orchestrator") {
+      return (
+        <OrchestratorView
+          selectedOrchestrator={selectedEntity as OrchestratorInfo}
+          currentSession={sessionCache[selectedEntity.id]}
+          onSessionChange={handleSessionChange}
+          onDebugEvent={handleDebugEvent}
+        />
+      );
+    }
+    if (selectedEntity?.type === "workflow") {
+      return (
+        <WorkflowView
+          selectedWorkflow={selectedEntity as WorkflowInfo}
+          onDebugEvent={handleDebugEvent}
+        />
+      );
+    }
+
+    switch (section) {
+      case "gallery":
+        return <ExamplesGallery onExampleLoaded={handleExampleLoaded} />;
+      case "history":
+        return <RunsView selectedRunId={subId} />;
+      case "evaluation":
+        return <EvalView tab={subId || "runs"} />;
+      case "mcp":
         return (
-          <AgentView
-            selectedAgent={appState.selectedEntity as AgentInfo}
-            currentSession={appState.currentSession}
-            onSessionChange={handleSessionChange}
-            onDebugEvent={handleDebugEvent}
-          />
-        );
-      case "orchestrator":
-        return (
-          <OrchestratorView
-            selectedOrchestrator={appState.selectedEntity as OrchestratorInfo}
-            currentSession={appState.currentSession}
-            onSessionChange={handleSessionChange}
-            onDebugEvent={handleDebugEvent}
-          />
-        );
-      case "workflow":
-        return (
-          <WorkflowView
-            selectedWorkflow={appState.selectedEntity as WorkflowInfo}
-            onDebugEvent={handleDebugEvent}
+          <McpView
+            servers={mcpServers}
+            selectedServerId={subId}
+            onServersChanged={refreshMcpServers}
           />
         );
       default:
-        return (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Unknown type: {(appState.selectedEntity as any).type}
-          </div>
-        );
+        return null;
     }
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <AppHeader
-        entities={appState.entities}
-        selectedEntity={appState.selectedEntity}
-        onSelect={handleEntitySelect}
-        isLoading={appState.isLoading}
-        onDeleteEntity={handleDeleteEntity}
-        appMode={appMode}
-        onAppModeChange={setAppMode}
-      />
-
-      {/* Main Content - Split Panel with explicit height */}
-      <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 56px)' }}>
-        {/* Left Panel - Main View */}
-        <div className="flex-1 min-w-0 overflow-hidden">
-          {renderEntityView()}
+    <SidebarProvider>
+      <AppSidebar segments={segs} entities={entities} mcpServers={mcpServers} />
+      <SidebarInset>
+        <TopBar
+          crumbs={crumbs}
+          showDebugToggle={isEntityPage}
+          debugOpen={debugOpen}
+          onToggleDebug={() => setDebugOpen((o) => !o)}
+        />
+        <div className="flex min-h-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-hidden">{renderContent()}</div>
+          {isEntityPage && debugOpen && (
+            <>
+              <div
+                className="group relative w-1 shrink-0 cursor-col-resize bg-border hover:bg-accent"
+                onMouseDown={startResize}
+                onDoubleClick={() => setDebugOpen(false)}
+                title="Drag to resize · double-click to close"
+              />
+              <div className="shrink-0" style={{ width: debugWidth }}>
+                <DebugPanel events={debugEvents} />
+              </div>
+            </>
+          )}
         </div>
-
-        {/* Resize Handle */}
-        {debugPanelOpen && (
-          <div
-            className={`w-1 bg-border hover:bg-accent cursor-col-resize flex-shrink-0 relative group ${
-              isResizing ? "bg-accent" : ""
-            }`}
-            onMouseDown={handleMouseDown}
-            onDoubleClick={handleDoubleClick}
-          >
-            <div className="absolute inset-y-0 -left-1 -right-1 flex items-center justify-center">
-              <div className="h-12 rounded-lg bg-primary w-2"></div>
-            </div>
-          </div>
-        )}
-
-        {/* Button to reopen when closed */}
-        {!debugPanelOpen && (
-          <div className="flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDebugPanelOpen(true)}
-              className="rounded-none border-l"
-              style={{ height: 'calc(100vh - 56px)' }}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-
-        {/* Right Panel - Debug */}
-        {debugPanelOpen && (
-          <div
-            className="flex-shrink-0"
-            style={{ width: `${debugPanelWidth}px`, height: '100%' }}
-          >
-            <DebugPanel
-              events={debugEvents}
-              isStreaming={false}
-            />
-          </div>
-        )}
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

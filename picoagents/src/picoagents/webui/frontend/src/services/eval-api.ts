@@ -68,9 +68,6 @@ class EvalApiClient {
     return this.request<Run[]>(`/api/runs${suffix}`);
   }
 
-  async getRun(runId: string): Promise<Run> {
-    return this.request<Run>(`/api/runs/${runId}`);
-  }
 
   async getRunData(runId: string): Promise<RunData> {
     return this.request<RunData>(`/api/runs/${runId}/data`);
@@ -171,9 +168,6 @@ class EvalApiClient {
     return this.request<TargetConfig[]>("/api/eval/targets");
   }
 
-  async getTarget(targetId: string): Promise<TargetConfig> {
-    return this.request<TargetConfig>(`/api/eval/targets/${targetId}`);
-  }
 
   async createTarget(data: {
     name: string;
@@ -202,9 +196,6 @@ class EvalApiClient {
     return this.request<EvalRun[]>("/api/eval/runs");
   }
 
-  async getEvalRun(evalRunId: string): Promise<EvalRun> {
-    return this.request<EvalRun>(`/api/eval/runs/${evalRunId}`);
-  }
 
   async startEvalRun(data: {
     dataset_id: string;
@@ -229,14 +220,6 @@ class EvalApiClient {
     );
   }
 
-  async getEvalResult(
-    evalRunId: string,
-    resultId: string
-  ): Promise<EvalResult> {
-    return this.request<EvalResult>(
-      `/api/eval/runs/${evalRunId}/results/${resultId}`
-    );
-  }
 
   async exportEvalRun(evalRunId: string): Promise<Blob> {
     const url = `${this.baseUrl}/api/eval/runs/${evalRunId}/export`;

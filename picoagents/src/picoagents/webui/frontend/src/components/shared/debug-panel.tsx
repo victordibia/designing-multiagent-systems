@@ -26,7 +26,7 @@ import type { StreamEvent } from "@/types";
 
 interface DebugPanelProps {
   events: StreamEvent[];
-  isStreaming: boolean;
+  isStreaming?: boolean;
 }
 
 const getEventIcon = (eventType: string) => {
@@ -34,29 +34,29 @@ const getEventIcon = (eventType: string) => {
     case "message":
       return <MessageSquare className="h-4 w-4" />;
     case "token_chunk":
-      return <MessageSquare className="h-4 w-4 text-blue-400" />;
+      return <MessageSquare className="h-4 w-4 text-info" />;
     case "tool_call":
       return <Activity className="h-4 w-4" />;
     case "tool_approval":
-      return <AlertCircle className="h-4 w-4 text-amber-600" />;
+      return <AlertCircle className="h-4 w-4 text-warning" />;
     case "error":
-      return <AlertCircle className="h-4 w-4 text-red-500" />;
+      return <AlertCircle className="h-4 w-4 text-destructive" />;
     case "complete":
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
+      return <CheckCircle className="h-4 w-4 text-success" />;
     case "workflow_started":
     case "workflow_completed":
-      return <Activity className="h-4 w-4 text-blue-500" />;
+      return <Activity className="h-4 w-4 text-info" />;
     // Orchestration events
     case "orchestration_start":
-      return <Users className="h-4 w-4 text-purple-500" />;
+      return <Users className="h-4 w-4 text-info" />;
     case "orchestration_complete":
-      return <CheckCircle className="h-4 w-4 text-purple-500" />;
+      return <CheckCircle className="h-4 w-4 text-info" />;
     case "agent_selection":
-      return <UserPlus className="h-4 w-4 text-blue-500" />;
+      return <UserPlus className="h-4 w-4 text-info" />;
     case "agent_execution_start":
-      return <Play className="h-4 w-4 text-blue-400" />;
+      return <Play className="h-4 w-4 text-info" />;
     case "agent_execution_complete":
-      return <Pause className="h-4 w-4 text-blue-400" />;
+      return <Pause className="h-4 w-4 text-info" />;
     default:
       return <Info className="h-4 w-4" />;
   }
@@ -117,7 +117,7 @@ function EventItem({ event }: { event: StreamEvent }) {
   const orchestrationDetail = getOrchestrationEventDetail(event);
 
   return (
-    <div className="bg-card border border-muted rounded p-2 shadow-sm">
+    <div className="bg-card border rounded-md p-2">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           {getEventIcon(event.type)}
@@ -181,7 +181,7 @@ function EventsSummary({ events }: { events: StreamEvent[] }) {
   return (
     <div className="grid grid-cols-2 gap-2 mb-4">
       {Object.entries(eventCounts).map(([type, count]) => (
-        <div key={type} className="bg-card border border-muted rounded p-2 shadow-sm">
+        <div key={type} className="bg-card border rounded-md p-2">
           <div className="flex items-center gap-2">
             {getEventIcon(type)}
             <div>
@@ -203,10 +203,10 @@ export function DebugPanel({ events, isStreaming }: DebugPanelProps) {
       <div className="p-4 border-b">
         <div className="flex items-center gap-2">
           <Bug className="h-5 w-5" />
-          <h3 className="font-semibold">Debug Panel</h3>
+          <h3 className="text-sm font-semibold">Debug Panel</h3>
           {isStreaming && (
             <Badge variant="secondary" className="gap-1">
-              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+              <div className="h-2 w-2 bg-success rounded-full animate-pulse" />
               Live
             </Badge>
           )}

@@ -11,7 +11,6 @@ import asyncio
 import json
 import logging
 import sys
-import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -37,8 +36,7 @@ class PendingInput:
                 )
             except Exception:
                 self.requested_schema = None
-        self.future: "asyncio.Future[Any]" = asyncio.get_event_loop().create_future()
-        self.created_at = time.time()
+        self.future: "asyncio.Future[Any]" = asyncio.get_running_loop().create_future()
 
 
 class McpPlayground:
@@ -73,7 +71,7 @@ class McpPlayground:
             try:
                 queue.put_nowait(event)
             except asyncio.QueueFull:
-                pass  # slow consumer: drop rather than block the transport
+                logger.debug("Dropping playground event for slow SSE consumer")
 
     def _on_wire_frame(self, server_id: str, frame: Dict[str, Any]) -> None:
         self._publish({"type": "wire_frame", "server_id": server_id, "frame": frame})
@@ -137,7 +135,10 @@ class McpPlayground:
 def _find_lab_dir() -> Optional[Path]:
     # webui/ -> picoagents pkg -> src -> picoagents project -> repo root
     candidate = Path(__file__).resolve().parents[4] / "examples" / "mcp_lab"
-    return candidate if candidate.is_dir() else None
+    if not candidate.is_dir():
+        logger.info("MCP lab servers not found (source checkout only); no presets")
+        return None
+    return candidate
 
 
 def get_presets() -> List[Dict[str, Any]]:

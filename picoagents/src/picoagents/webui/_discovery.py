@@ -85,9 +85,11 @@ class PicoAgentsScanner:
             module = self._entity_cache[entity_id]
             return self._find_entity_in_module(module)
 
-        # Try to reload if not in cache
+        # Try to reload if not in cache. Minted IDs are "{base_id}.{type}",
+        # while _get_entity_id returns the bare base, so compare the base part.
+        base_id = entity_id.rsplit(".", 1)[0]
         for py_file in self.entities_dir.rglob("*.py"):
-            if self._get_entity_id(py_file) == entity_id:
+            if self._get_entity_id(py_file) == base_id:
                 module = self._load_module(py_file, entity_id)
                 if module:
                     self._entity_cache[entity_id] = module
@@ -302,7 +304,7 @@ class PicoAgentsScanner:
                 return None
 
             module = importlib.util.module_from_spec(spec)
-            sys.modules[entity_id] = module
+            sys.modules[f"picoagents_entity_{entity_id}"] = module
             spec.loader.exec_module(module)
 
             logger.debug(f"Successfully loaded module {entity_id} from {py_file}")
@@ -399,71 +401,7 @@ class PicoAgentsScanner:
 
         return False
 
-    def _extract_entity_info(
-        self, module: Any, entity_id: str, module_path: str
-    ) -> Optional[Entity]:
-        """Extract metadata from a loaded module.
 
-        Args:
-            module: Loaded Python module
-            entity_id: Entity identifier
-            module_path: Path to the module file
-
-        Returns:
-            Entity info or None if no valid entity found
-        """
-        obj = self._find_entity_in_module(module)
-        if not obj:
-            return None
-
-        # Determine entity type
-        entity_type = self._get_entity_type(obj)
-        if entity_type is None:
-            return None
-
-        # Common attributes
-        common_attrs = {
-            "id": entity_id,
-            "name": getattr(obj, "name", None),
-            "description": getattr(obj, "description", None),
-            "source": "directory",
-            "module_path": module_path,
-            "has_env": (Path(module_path).parent / ".env").exists(),
-        }
-
-        # Create appropriate info object based on type
-        if entity_type == "agent":
-            return self._create_agent_info(obj, common_attrs)
-        elif entity_type == "orchestrator":
-            return self._create_orchestrator_info(obj, common_attrs)
-        elif entity_type == "workflow":
-            return self._create_workflow_info(obj, common_attrs)
-
-        return None
-
-    def _get_entity_type(self, obj: Any) -> Optional[str]:
-        """Determine the type of a PicoAgents entity.
-
-        Args:
-            obj: Entity object
-
-        Returns:
-            Entity type string or None if not recognized
-        """
-        try:
-            from ..agents import BaseAgent
-            from ..orchestration import BaseOrchestrator
-
-            if isinstance(obj, BaseAgent):
-                return "agent"
-            elif isinstance(obj, BaseOrchestrator):
-                return "orchestrator"
-            elif hasattr(obj, "run_stream"):
-                return "workflow"
-        except ImportError:
-            pass
-
-        return None
 
     def _create_agent_info(self, agent: Any, common_attrs: Dict[str, Any]) -> AgentInfo:
         """Create AgentInfo from agent object.

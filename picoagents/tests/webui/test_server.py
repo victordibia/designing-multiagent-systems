@@ -95,25 +95,15 @@ def test_get_nonexistent_entity(test_client):
     assert response.status_code == 404
 
 
-def test_run_entity_without_messages(test_server, test_client):
-    """Test running agent without required messages."""
-    # Register an entity
+def test_non_streaming_run_endpoint_removed(test_server, test_client):
+    """The non-streaming /run endpoint was removed (its execute_agent backend
+    was deleted in 0.3.0); only /run/stream exists."""
     agent = MockAgent("TestAgent")
     test_server.registry.register_entity("test_agent", agent)
 
     response = test_client.post("/api/entities/test_agent/run", json={})
 
-    assert response.status_code == 400
-
-
-def test_run_nonexistent_entity(test_client):
-    """Test running nonexistent entity."""
-    response = test_client.post(
-        "/api/entities/nonexistent/run",
-        json={"messages": [{"role": "user", "content": "Hello", "source": "test"}]},
-    )
-
-    assert response.status_code == 404
+    assert response.status_code == 405
 
 
 def test_list_sessions_empty(test_client):

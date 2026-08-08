@@ -84,13 +84,7 @@ class McpApiClient {
     return this.request(`/api/mcp/servers/${serverId}/tools`);
   }
 
-  listResources(serverId: string): Promise<Array<Record<string, any>>> {
-    return this.request(`/api/mcp/servers/${serverId}/resources`);
-  }
 
-  listPrompts(serverId: string): Promise<Array<Record<string, any>>> {
-    return this.request(`/api/mcp/servers/${serverId}/prompts`);
-  }
 
   callTool(serverId: string, toolName: string, args: Record<string, any>): Promise<McpCallResult> {
     return this.request(`/api/mcp/servers/${serverId}/tools/${toolName}/call`, {

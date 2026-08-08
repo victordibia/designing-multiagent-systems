@@ -2,7 +2,7 @@
 
 REST + SSE surface for the WebUI MCP playground:
 - Server configs: list/add/remove, connect/disconnect
-- Discovery: capabilities, tools, resources, prompts
+- Discovery: capabilities and tools
 - Invocation: direct tool calls, MRTR input replies
 - Observability: wire frames, SSE event stream
 - SDK support matrix
@@ -56,10 +56,9 @@ class InputReplyRequest(BaseModel):
 def get_playground(request: Request) -> Any:
     playground = getattr(request.app.state, "mcp_playground", None)
     if playground is None:
-        from ._mcp_playground import McpPlayground
-
-        playground = McpPlayground()
-        request.app.state.mcp_playground = playground
+        raise HTTPException(
+            status_code=503, detail="MCP playground not initialized (mcp not installed?)"
+        )
     return playground
 
 
@@ -229,34 +228,6 @@ async def list_tools(request: Request, server_id: str) -> List[Dict[str, Any]]:
     return await _tool_listing(manager, server_id)
 
 
-@router.get("/servers/{server_id}/resources")
-async def list_resources(request: Request, server_id: str) -> List[Dict[str, Any]]:
-    playground = get_playground(request)
-    manager = _require_connected(playground, server_id)
-    client = await manager.get_client(server_id)
-    try:
-        result = await client.list_resources()
-    except Exception as e:
-        raise HTTPException(status_code=501, detail=f"Server does not support resources: {e}")
-    return [
-        r.model_dump(by_alias=True, exclude_none=True, mode="json") for r in result.resources
-    ]
-
-
-@router.get("/servers/{server_id}/prompts")
-async def list_prompts(request: Request, server_id: str) -> List[Dict[str, Any]]:
-    playground = get_playground(request)
-    manager = _require_connected(playground, server_id)
-    client = await manager.get_client(server_id)
-    try:
-        result = await client.list_prompts()
-    except Exception as e:
-        raise HTTPException(status_code=501, detail=f"Server does not support prompts: {e}")
-    return [
-        p.model_dump(by_alias=True, exclude_none=True, mode="json") for p in result.prompts
-    ]
-
-
 # ---------------------------------------------------------------------------
 # Invocation
 # ---------------------------------------------------------------------------
@@ -280,7 +251,7 @@ async def call_tool(
     try:
         result = await client.call_tool(tool_name, arguments=body.arguments)
     except Exception as e:
-        return {"is_error": True, "error": str(e), "content": [], "structured_content": None}
+        raise HTTPException(status_code=502, detail=f"Tool call failed: {e}")
 
     return {
         "is_error": bool(result.is_error),

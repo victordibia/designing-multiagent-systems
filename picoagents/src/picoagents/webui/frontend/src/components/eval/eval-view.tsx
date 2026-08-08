@@ -1,42 +1,42 @@
 /**
- * EvalView — top-level evaluation page with Datasets / Targets / Runs tabs.
+ * EvalView - Evaluation section with routed tabs:
+ * /evaluation/runs · /evaluation/datasets · /evaluation/targets
  */
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/shared/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { DatasetPanel } from "@/components/eval/dataset-panel";
 import { TargetPanel } from "@/components/eval/target-panel";
 import { EvalRunsPanel } from "@/components/eval/eval-runs-panel";
+import { navigate } from "@/lib/router";
 
-export function EvalView() {
+type EvalTab = "runs" | "datasets" | "targets";
+
+export function EvalView({ tab }: { tab: string }) {
+  const active: EvalTab = tab === "datasets" || tab === "targets" ? tab : "runs";
+
   return (
-    <div className="flex flex-col h-full">
-      <Tabs defaultValue="runs" className="flex flex-col h-full">
-        <div className="px-3 pt-3">
-          <TabsList className="h-8">
-            <TabsTrigger value="runs" className="text-xs px-3">
-              Runs
-            </TabsTrigger>
-            <TabsTrigger value="datasets" className="text-xs px-3">
-              Datasets
-            </TabsTrigger>
-            <TabsTrigger value="targets" className="text-xs px-3">
-              Targets
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="runs" className="flex-1 overflow-hidden mt-0">
-          <EvalRunsPanel />
-        </TabsContent>
-
-        <TabsContent value="datasets" className="flex-1 overflow-hidden mt-0">
-          <DatasetPanel />
-        </TabsContent>
-
-        <TabsContent value="targets" className="flex-1 overflow-hidden mt-0">
-          <TargetPanel />
-        </TabsContent>
-      </Tabs>
+    <div className="flex h-full flex-col">
+      <PageHeader
+        title="Evaluation"
+        description="Datasets, evaluation targets, and batch evaluation runs."
+        actions={
+          <SegmentedControl
+            value={active}
+            onValueChange={(next) => navigate(`/evaluation/${next}`)}
+            options={[
+              { value: "runs", label: "Evaluation runs" },
+              { value: "datasets", label: "Datasets" },
+              { value: "targets", label: "Targets" },
+            ]}
+          />
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {active === "runs" && <EvalRunsPanel />}
+        {active === "datasets" && <DatasetPanel />}
+        {active === "targets" && <TargetPanel />}
+      </div>
     </div>
   );
 }

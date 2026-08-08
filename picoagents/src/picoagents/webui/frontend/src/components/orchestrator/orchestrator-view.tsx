@@ -77,25 +77,6 @@ export function OrchestratorView({
     }
   }, [selectedOrchestrator.id, onSessionChange]);
 
-  const getOrchestratorTypeColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "round_robin":
-      case "roundrobinorchestrator":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "ai":
-      case "aiorchestrator":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
-      case "plan":
-      case "planorchestrator":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "handoff":
-      case "handofforchestrator":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
-    }
-  };
-
   return (
     <div className="flex flex-col h-full">
       {/* Orchestrator Info Header */}
@@ -103,7 +84,7 @@ export function OrchestratorView({
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Users className="h-6 w-6 text-blue-600" />
+              <Users className="h-6 w-6 text-info" />
               <div className="flex-1">
                 <h2 className="text-lg font-semibold">
                   {selectedOrchestrator.name || selectedOrchestrator.id}
@@ -115,7 +96,7 @@ export function OrchestratorView({
                 )}
               </div>
             </div>
-            <Badge className={getOrchestratorTypeColor(selectedOrchestrator.orchestrator_type)}>
+            <Badge variant="outline">
               {selectedOrchestrator.orchestrator_type}
             </Badge>
           </div>
@@ -125,6 +106,7 @@ export function OrchestratorView({
             <div className="flex items-center gap-3">
               <SessionSwitcher
                 entityId={selectedOrchestrator.id}
+                entityType="orchestrator"
                 currentSessionId={currentSession?.id}
                 onSessionChange={handleLocalSessionChange}
               />
@@ -223,10 +205,10 @@ export function OrchestratorView({
 
             {/* Current Agent Speaking Indicator */}
             {currentAgentSpeaking && (
-              <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+              <Card className="border-info/40 bg-info/10">
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse" />
+                    <div className="h-2 w-2 bg-info rounded-full animate-pulse" />
                     <span className="text-sm font-medium">
                       {currentAgentSpeaking} is responding...
                     </span>
@@ -246,7 +228,6 @@ export function OrchestratorView({
           onClearMessages={handleClearMessages}
           onStop={handleStop}
           isStreaming={isStreaming}
-          sessionTotalUsage={sessionTotalUsage}
           placeholder={`Start a conversation with ${selectedOrchestrator.agents.length} agents via ${selectedOrchestrator.orchestrator_type} orchestration...`}
           emptyStateTitle="Multi-Agent Orchestration"
           emptyStateDescription={`This orchestrator will coordinate conversations between ${selectedOrchestrator.agents.join(", ")} using ${selectedOrchestrator.orchestrator_type} pattern.`}

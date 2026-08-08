@@ -16,9 +16,9 @@ import type { McpFeatureStatus, McpSupportMatrix } from "@/types/mcp";
 function StatusCell({ status, note }: { status: McpFeatureStatus; note?: string }) {
   const icon =
     status === "shipped" ? (
-      <Check className="h-3.5 w-3.5 text-green-600" />
+      <Check className="h-3.5 w-3.5 text-success" />
     ) : status === "partial" ? (
-      <CircleDashed className="h-3.5 w-3.5 text-amber-500" />
+      <CircleDashed className="h-3.5 w-3.5 text-warning" />
     ) : (
       <Minus className="h-3.5 w-3.5 text-muted-foreground/50" />
     );
@@ -66,7 +66,7 @@ export function SupportMatrixView() {
                     className={cn(
                       "text-[10px] font-normal",
                       sdk.source === "introspected"
-                        ? "text-green-600"
+                        ? "text-success"
                         : "text-muted-foreground"
                     )}
                   >

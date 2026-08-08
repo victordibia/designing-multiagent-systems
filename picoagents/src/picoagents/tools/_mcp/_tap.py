@@ -6,9 +6,12 @@ records each SessionMessage with direction and timestamp. Powers the wire
 inspector in the WebUI playground without touching SDK internals.
 """
 
+import logging
 import time
 from collections import deque
 from typing import Any, Callable, Deque, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 WireFrame = Dict[str, Any]
 """A recorded frame: {direction, timestamp, message}."""
@@ -107,7 +110,7 @@ class WireTap:
             try:
                 self._on_frame(self.server_id, frame)
             except Exception:
-                pass  # observers must never break the transport
+                logger.debug("Wire-frame observer raised; ignoring", exc_info=True)
 
     async def __aenter__(self) -> Any:
         read, write = await self._inner.__aenter__()

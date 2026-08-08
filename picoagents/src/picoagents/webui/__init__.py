@@ -1,6 +1,8 @@
 """
 PicoAgents WebUI - Web interface for PicoAgents entities.
 
+logger = logging.getLogger(__name__)
+
 Provides a web-based interface for discovering, running, and interacting with
 PicoAgents agents, orchestrators, and workflows.
 """
@@ -146,7 +148,7 @@ class WebUIServer:
         """
         entities_count = len(self._server.registry.list_entities())
 
-        print(f"📋 Serving {entities_count} entities")
+        logger.info(f"📋 Serving {entities_count} entities")
 
         # Get the app with registered entities
         app = self.get_app()
@@ -238,7 +240,7 @@ def scan_entities(directory: str) -> List[Entity]:
 
         entities = scan_entities("./my_agents")
         for entity in entities:
-            print(f"Found {entity.type}: {entity.id}")
+            logger.info(f"Found {entity.type}: {entity.id}")
         ```
     """
     scanner = PicoAgentsScanner(directory)

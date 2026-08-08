@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { StatusBadge, ScoreBadge } from "@/components/eval/score-badge";
+import { StatusBadge, ScoreBadge } from "@/components/shared/status-badge";
 import { evalApiClient } from "@/services/eval-api";
 import {
   Clock,

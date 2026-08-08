@@ -7,7 +7,6 @@ with PicoAgents entities (agents, orchestrators, workflows).
 
 import argparse
 import logging
-import os
 import sys
 import webbrowser
 from pathlib import Path

@@ -81,7 +81,7 @@ class EntityRegistry:
                 return None
 
             module = importlib.util.module_from_spec(spec)
-            sys.modules[entity_id] = module
+            sys.modules[f"picoagents_entity_{entity_id}"] = module
             spec.loader.exec_module(module)
 
             # Look for common entity variable names
@@ -191,6 +191,12 @@ class EntityRegistry:
         Returns:
             True if entity was removed, False if not found
         """
+        # Directory-discovered entities cannot be removed; check before mutating
+        entity = self._entities.get(entity_id)
+        if entity is not None and entity.source not in ["memory", "github"]:
+            logger.warning(f"Cannot remove directory-discovered entity: {entity_id}")
+            return False
+
         removed = False
 
         # Remove from in-memory entities
@@ -201,22 +207,13 @@ class EntityRegistry:
 
         # Remove from entities dict
         if entity_id in self._entities:
-            entity = self._entities[entity_id]
-            # Only allow removing entities that are from memory or github
-            # Don't remove directory-discovered entities
-            if entity.source in ["memory", "github"]:
-                del self._entities[entity_id]
-                removed = True
-                logger.info(f"Removed entity from registry: {entity_id}")
-            else:
-                logger.warning(f"Cannot remove directory-discovered entity: {entity_id}")
-                return False
+            del self._entities[entity_id]
+            removed = True
+            logger.info(f"Removed entity from registry: {entity_id}")
 
         # Clean up from sys.modules if it was a loaded module
         import sys
-        if entity_id in sys.modules:
-            del sys.modules[entity_id]
-            logger.debug(f"Removed {entity_id} from sys.modules")
+        sys.modules.pop(f"picoagents_entity_{entity_id}", None)
 
         return removed
 

@@ -110,11 +110,11 @@ function MultiModalContentRenderer({ message, className }: MultiModalRenderProps
     <div className={`my-2 p-3 border rounded-lg bg-muted ${className || ""}`}>
       <div className="flex items-center gap-2">
         {isPdf ? (
-          <FileText className="h-4 w-4 text-red-500" />
+          <FileText className="h-4 w-4 text-destructive" />
         ) : isAudio ? (
-          <div className="h-4 w-4 rounded-full bg-green-500" />
+          <div className="h-4 w-4 rounded-full bg-success" />
         ) : isVideo ? (
-          <div className="h-4 w-4 rounded-sm bg-blue-500" />
+          <div className="h-4 w-4 rounded-sm bg-info" />
         ) : (
           <Download className="h-4 w-4" />
         )}
@@ -169,20 +169,20 @@ function ToolCallRenderer({ message }: { message: AssistantMessage; className?: 
         }
 
         return (
-          <div key={index} className="p-3 border rounded-lg bg-blue-50">
+          <div key={index} className="p-3 border border-info/40 rounded-lg bg-info/10">
             <div
               className="flex items-center gap-2 cursor-pointer"
               onClick={() => setIsExpanded(!isExpanded)}
             >
-              <Code className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">
+              <Code className="h-4 w-4 text-info" />
+              <span className="text-sm font-medium">
                 Tool Call: {toolCall.tool_name}
               </span>
-              <span className="text-xs text-blue-600">{isExpanded ? "▼" : "▶"}</span>
+              <span className="text-xs text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
             </div>
             {isExpanded && (
-              <div className="mt-2 text-xs font-mono bg-white p-2 rounded border">
-                <div className="text-blue-600 mb-1">Parameters:</div>
+              <div className="mt-2 text-xs font-mono bg-background p-2 rounded border">
+                <div className="text-muted-foreground mb-1">Parameters:</div>
                 <pre className="whitespace-pre-wrap">
                   {JSON.stringify(parsedParams, null, 2)}
                 </pre>
@@ -199,27 +199,27 @@ function ToolResultRenderer({ message, className }: { message: ToolMessage; clas
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className={`my-2 p-3 border rounded-lg ${message.success ? 'bg-green-50' : 'bg-red-50'} ${className || ""}`}>
+    <div className={`my-2 p-3 border rounded-lg ${message.success ? 'border-success/40 bg-success/10' : 'border-destructive/40 bg-destructive/10'} ${className || ""}`}>
       <div
         className="flex items-center gap-2 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {message.success ? (
-          <Code className="h-4 w-4 text-green-600" />
+          <Code className="h-4 w-4 text-success" />
         ) : (
-          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertCircle className="h-4 w-4 text-destructive" />
         )}
-        <span className={`text-sm font-medium ${message.success ? 'text-green-800' : 'text-red-800'}`}>
+        <span className={`text-sm font-medium `}>
           Tool Result: {message.tool_name} {message.success ? '✓' : '✗'}
         </span>
-        <span className={`text-xs ${message.success ? 'text-green-600' : 'text-red-600'}`}>
+        <span className={`text-xs text-muted-foreground`}>
           {isExpanded ? "▼" : "▶"}
         </span>
       </div>
       {isExpanded && (
-        <div className="mt-2 text-xs font-mono bg-white p-2 rounded border">
+        <div className="mt-2 text-xs font-mono bg-background p-2 rounded border">
           {message.error ? (
-            <div className="text-red-700">Error: {message.error}</div>
+            <div className="text-destructive">Error: {message.error}</div>
           ) : (
             <pre className="whitespace-pre-wrap">{message.content}</pre>
           )}

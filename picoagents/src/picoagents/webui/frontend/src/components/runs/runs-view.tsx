@@ -1,34 +1,39 @@
 /**
- * RunsView — displays persisted agent/orchestrator run history with filters.
+ * RunsView (History) - persisted execution records with filters.
+ * A run is one recorded execution of an agent, orchestrator, or eval task.
+ * Detail is routed: /history/:runId.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useState } from "react";
+import { Clock, Cpu, History, RefreshCw, Search, Trash2, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/eval/score-badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { RunDetail } from "@/components/runs/run-detail";
+import { navigate } from "@/lib/router";
 import { evalApiClient } from "@/services/eval-api";
-import {
-  Clock,
-  Cpu,
-  Trash2,
-  ArrowLeft,
-  Search,
-  RefreshCw,
-  Zap,
-} from "lucide-react";
 import type { Run } from "@/types/eval";
 
 type RunTypeFilter = "all" | "agent" | "orchestrator" | "eval_task";
 
-export function RunsView() {
+interface RunsViewProps {
+  /** Routed run id for the detail page (undefined = list). */
+  selectedRunId?: string;
+}
+
+export function RunsView({ selectedRunId }: RunsViewProps) {
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [filter, setFilter] = useState<RunTypeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<Run | null>(null);
 
   const loadRuns = useCallback(async () => {
     setLoading(true);
@@ -36,10 +41,9 @@ export function RunsView() {
     try {
       const params: Record<string, any> = { limit: 100 };
       if (filter !== "all") params.run_type = filter;
-      const data = await evalApiClient.listRuns(params);
-      setRuns(data);
+      setRuns(await evalApiClient.listRuns(params));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load runs");
+      setError(e instanceof Error ? e.message : "Failed to load history");
     } finally {
       setLoading(false);
     }
@@ -53,7 +57,7 @@ export function RunsView() {
     try {
       await evalApiClient.deleteRun(run.id);
       setRuns((prev) => prev.filter((r) => r.id !== run.id));
-      if (selectedRun?.id === run.id) setSelectedRun(null);
+      if (selectedRunId === run.id) navigate("/history");
     } catch (e) {
       console.error("Delete failed:", e);
     }
@@ -69,103 +73,134 @@ export function RunsView() {
     );
   });
 
-  // Detail view
-  if (selectedRun) {
+  // Detail page (routed)
+  const selectedRun = selectedRunId ? runs.find((r) => r.id === selectedRunId) : undefined;
+  if (selectedRunId) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 p-3 border-b">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedRun(null)}
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <span className="text-sm font-medium">
-            {selectedRun.agent_name}
-          </span>
-          <StatusBadge status={selectedRun.status} />
-        </div>
-        <div className="flex-1 overflow-auto">
-          <RunDetail run={selectedRun} />
+      <div className="flex h-full flex-col">
+        <PageHeader
+          title={
+            selectedRun ? (
+              <>
+                {selectedRun.agent_name}
+                <StatusBadge status={selectedRun.status} />
+              </>
+            ) : (
+              "Run"
+            )
+          }
+          description="One recorded execution."
+        />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {selectedRun ? (
+            <RunDetail run={selectedRun} />
+          ) : loading ? (
+            <div className="space-y-3 p-4">
+              <Skeleton className="h-6 w-64" />
+              <Skeleton className="h-32 w-full max-w-3xl" />
+            </div>
+          ) : (
+            <EmptyState
+              icon={History}
+              title="Run not found"
+              description="It may have been deleted."
+              action={
+                <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
+                  Back to history
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
     );
   }
 
-  // List view
+  // List page
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b">
-        <h2 className="text-sm font-semibold">Runs</h2>
+    <div className="flex h-full flex-col">
+      <PageHeader
+        title="History"
+        description="Recorded executions of agents, orchestrators, and evaluation tasks."
+        actions={
+          <Button variant="ghost" size="sm" className="h-8" onClick={loadRuns} aria-label="Refresh">
+            <RefreshCw className="size-3.5" />
+          </Button>
+        }
+      />
 
-        {/* Type filter */}
-        <div className="flex items-center gap-1 ml-2">
-          {(["all", "agent", "orchestrator", "eval_task"] as const).map(
-            (t) => (
-              <Button
-                key={t}
-                variant={filter === t ? "default" : "ghost"}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setFilter(t)}
-              >
-                {t === "all" ? "All" : t === "eval_task" ? "Eval" : t}
-              </Button>
-            )
-          )}
-        </div>
-
-        {/* Search */}
-        <div className="relative ml-auto max-w-xs flex-1">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      <div className="flex shrink-0 items-center gap-3 border-b px-4 py-2">
+        <SegmentedControl
+          value={filter}
+          onValueChange={setFilter}
+          options={[
+            { value: "all", label: "All" },
+            { value: "agent", label: "Agents" },
+            { value: "orchestrator", label: "Orchestrators" },
+            { value: "eval_task", label: "Evaluation tasks" },
+          ]}
+        />
+        <div className="relative ml-auto w-64">
+          <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search runs..."
+            placeholder="Search history..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 pl-7 text-xs"
+            className="h-8 pl-7 text-xs"
           />
         </div>
-
-        <Button variant="ghost" size="sm" className="h-7" onClick={loadRuns}>
-          <RefreshCw className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-            Loading runs...
+          <div className="space-y-2 p-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <p className="text-sm text-destructive">{error}</p>
-            <Button variant="outline" size="sm" onClick={loadRuns}>
-              Retry
-            </Button>
-          </div>
+          <EmptyState
+            icon={History}
+            title="Failed to load history"
+            description={error}
+            action={
+              <Button variant="outline" size="sm" onClick={loadRuns}>
+                Retry
+              </Button>
+            }
+          />
         ) : filteredRuns.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-            {runs.length === 0
-              ? "No persisted runs yet. Use persist=True when calling agent.run() or orchestrator.run()."
-              : "No runs match your search."}
-          </div>
+          <EmptyState
+            icon={History}
+            title={runs.length === 0 ? "No recorded executions yet" : "No matches"}
+            description={
+              runs.length === 0
+                ? "Runs are recorded when persistence is enabled on agent or orchestrator execution."
+                : "No runs match your search."
+            }
+          />
         ) : (
           <div className="divide-y">
             {filteredRuns.map((run) => (
               <RunRow
                 key={run.id}
                 run={run}
-                onSelect={() => setSelectedRun(run)}
-                onDelete={() => handleDelete(run)}
+                onSelect={() => navigate(`/history/${encodeURIComponent(run.id)}`)}
+                onDelete={() => setPendingDelete(run)}
               />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title="Delete run?"
+        description={`This permanently deletes the recorded execution of "${pendingDelete?.agent_name}".`}
+        confirmLabel="Delete"
+        onConfirm={() => pendingDelete && handleDelete(pendingDelete)}
+      />
     </div>
   );
 }
@@ -189,57 +224,48 @@ function RunRow({
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 cursor-pointer group"
+      className="group flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-muted/50"
       onClick={onSelect}
     >
-      {/* Left: type badge + name */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-            {run.run_type}
+          <Badge variant="outline" className="shrink-0 text-xs">
+            {run.run_type === "eval_task" ? "evaluation" : run.run_type}
           </Badge>
-          <span className="text-sm font-medium truncate">
-            {run.agent_name}
-          </span>
+          <span className="truncate text-sm font-medium">{run.agent_name}</span>
           <StatusBadge status={run.status} />
         </div>
         {run.task_input && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {run.task_input}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{run.task_input}</p>
         )}
       </div>
 
-      {/* Right: stats */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
-        {run.model && (
-          <span className="hidden sm:inline truncate max-w-[120px]">
-            {run.model}
-          </span>
-        )}
+      <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+        {run.model && <span className="hidden max-w-[120px] truncate sm:inline">{run.model}</span>}
         <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
+          <Clock className="size-3" />
           {dur}
         </span>
         <span className="flex items-center gap-1">
-          <Zap className="h-3 w-3" />
+          <Zap className="size-3" />
           {totalTokens.toLocaleString()}
         </span>
         <span className="flex items-center gap-1">
-          <Cpu className="h-3 w-3" />
+          <Cpu className="size-3" />
           {run.llm_calls}
         </span>
         <span className="text-muted-foreground/60">{timeAgo}</span>
         <Button
           variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          size="icon"
+          className="size-6 opacity-0 group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
+          aria-label="Delete run"
         >
-          <Trash2 className="h-3 w-3" />
+          <Trash2 className="size-3" />
         </Button>
       </div>
     </div>

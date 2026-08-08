@@ -5,10 +5,6 @@
 
 import type {
   Entity,
-  AgentInfo,
-  OrchestratorInfo,
-  WorkflowInfo,
-  HealthResponse,
   RunEntityRequest,
   SessionInfo,
   StreamEvent,
@@ -49,19 +45,11 @@ class ApiClient {
     return response.json();
   }
 
-  // Health check
-  async getHealth(): Promise<HealthResponse> {
-    return this.request<HealthResponse>("/api/health");
-  }
-
   // Entity discovery - unified endpoint
   async getEntities(): Promise<Entity[]> {
     return this.request<Entity[]>("/api/entities");
   }
 
-  async getEntity(entityId: string): Promise<Entity> {
-    return this.request<Entity>(`/api/entities/${entityId}`);
-  }
 
   async deleteEntity(entityId: string): Promise<{ status: string; entity_id: string; message: string }> {
     return this.request(`/api/entities/${entityId}`, {
@@ -73,28 +61,11 @@ class ApiClient {
   async addExample(request: {
     example_id: string;
     github_path: string;
-    category: string;
   }): Promise<Entity> {
     return this.request<Entity>("/api/entities/add", {
       method: "POST",
       body: JSON.stringify(request),
     });
-  }
-
-  // Type-specific entity getters for convenience
-  async getAgents(): Promise<AgentInfo[]> {
-    const entities = await this.getEntities();
-    return entities.filter((e): e is AgentInfo => e.type === "agent");
-  }
-
-  async getOrchestrators(): Promise<OrchestratorInfo[]> {
-    const entities = await this.getEntities();
-    return entities.filter((e): e is OrchestratorInfo => e.type === "orchestrator");
-  }
-
-  async getWorkflows(): Promise<WorkflowInfo[]> {
-    const entities = await this.getEntities();
-    return entities.filter((e): e is WorkflowInfo => e.type === "workflow");
   }
 
   // Session management
@@ -124,9 +95,6 @@ class ApiClient {
     });
   }
 
-  async getSession(sessionId: string): Promise<SessionInfo> {
-    return this.request<SessionInfo>(`/api/sessions/${sessionId}`);
-  }
 
   async getSessionMessages(sessionId: string): Promise<{
     session_id: string;
@@ -251,38 +219,6 @@ class ApiClient {
     }
   }
 
-  // Non-streaming execution (for testing/simple requests)
-  async runEntity(
-    entityId: string,
-    request: RunEntityRequest
-  ): Promise<any> {
-    return this.request(`/api/entities/${entityId}/run`, {
-      method: "POST",
-      body: JSON.stringify(request),
-    });
-  }
-
-  // Cache management
-  async clearCache(): Promise<{ status: string }> {
-    return this.request("/api/cache/clear", {
-      method: "POST",
-    });
-  }
-
-  // Statistics
-  async getStats(): Promise<{
-    entities: {
-      total: number;
-      by_type: {
-        agents: number;
-        orchestrators: number;
-        workflows: number;
-      };
-    };
-    sessions: any;
-  }> {
-    return this.request("/api/stats");
-  }
 }
 
 // Export singleton instance

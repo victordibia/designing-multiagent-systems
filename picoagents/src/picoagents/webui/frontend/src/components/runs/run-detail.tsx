@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/eval/score-badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { MessageRenderer } from "@/components/message_renderer";
 import { evalApiClient } from "@/services/eval-api";
 import {
