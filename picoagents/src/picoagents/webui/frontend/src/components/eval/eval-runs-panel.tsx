@@ -99,7 +99,7 @@ export function EvalRunsPanel() {
   if (selectedRun) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 p-3 border-b">
+        <div className="flex items-center gap-2 border-b px-4 py-3">
           <Button
             variant="ghost"
             size="sm"
@@ -131,7 +131,7 @@ export function EvalRunsPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b">
+      <div className="flex items-center gap-2 border-b px-4 py-3">
         <h3 className="text-sm font-semibold">Eval Runs</h3>
         <div className="ml-auto flex items-center gap-1">
           <Button
@@ -170,6 +170,7 @@ export function EvalRunsPanel() {
           <EmptyState
             icon={Activity}
             title="No evaluation runs yet"
+            className="px-4"
             description="An evaluation scores one or more targets against a dataset of tasks. You need a dataset and at least one target first."
             action={
               <div className="flex gap-2">
@@ -310,14 +311,14 @@ function LaunchEvalForm({
 
   if (loading) {
     return (
-      <div className="p-3 border-b bg-muted/30 text-xs text-muted-foreground">
+      <div className="border-b bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
         Loading datasets and targets...
       </div>
     );
   }
 
   return (
-    <div className="p-3 border-b bg-muted/30 space-y-2">
+    <div className="border-b bg-muted/30 px-4 py-3 space-y-2">
       <p className="text-xs font-medium">Launch Evaluation</p>
 
       {/* Dataset selector */}

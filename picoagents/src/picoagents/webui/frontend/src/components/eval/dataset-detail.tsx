@@ -185,7 +185,7 @@ function TaskRow({
 
   if (isEditing) {
     return (
-      <div className="p-3 space-y-2 bg-muted/20">
+      <div className="space-y-2 bg-muted/20 px-4 py-3">
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-xs">Name</Label>
@@ -320,7 +320,7 @@ function AddTaskForm({
   };
 
   return (
-    <div className="p-3 border-b bg-muted/20 space-y-2">
+    <div className="border-b bg-muted/20 px-4 py-3 space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">Name</Label>

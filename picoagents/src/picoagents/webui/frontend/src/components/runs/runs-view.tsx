@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { RunDetail } from "@/components/runs/run-detail";
 import { navigate } from "@/lib/router";
+import { clickableProps } from "@/lib/utils";
 import { evalApiClient } from "@/services/eval-api";
 import type { Entity } from "@/types";
 import type { Run } from "@/types/eval";
@@ -119,6 +120,7 @@ export function RunsView({ selectedRunId, entities = [] }: RunsViewProps) {
             <EmptyState
               icon={History}
               title="Run not found"
+            className="px-4"
               description="It may have been deleted."
               action={
                 <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
@@ -178,6 +180,7 @@ export function RunsView({ selectedRunId, entities = [] }: RunsViewProps) {
           <EmptyState
             icon={History}
             title="Failed to load history"
+            className="px-4"
             description={error}
             action={
               <Button variant="outline" size="sm" onClick={loadRuns}>
@@ -189,6 +192,7 @@ export function RunsView({ selectedRunId, entities = [] }: RunsViewProps) {
           <EmptyState
             icon={History}
             title={runs.length === 0 ? "No recorded executions yet" : "No matches"}
+            className="px-4"
             description={
               runs.length === 0
                 ? "Every agent and orchestrator execution is recorded here. Open an agent and send it a task, then come back."
@@ -258,8 +262,8 @@ function RunRow({
 
   return (
     <div
-      className="group flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-muted/50"
-      onClick={onSelect}
+      className="group flex cursor-pointer items-center gap-3 px-4 py-2.5 outline-none hover:bg-muted/50 focus-visible:bg-muted/50"
+      {...clickableProps(onSelect)}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

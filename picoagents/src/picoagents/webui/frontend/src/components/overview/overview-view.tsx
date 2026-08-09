@@ -104,19 +104,19 @@ export function OverviewView({ entities, mcpServers, loading }: OverviewViewProp
                   icon={Bot}
                   label="Agents"
                   count={counts.agent}
-                  onClick={() => navigate("/agents")}
+                  href="#/agents"
                 />
                 <CountCard
                   icon={Users}
                   label="Orchestrators"
                   count={counts.orchestrator}
-                  onClick={() => navigate("/orchestrators")}
+                  href="#/orchestrators"
                 />
                 <CountCard
                   icon={GitBranch}
                   label="Workflows"
                   count={counts.workflow}
-                  onClick={() => navigate("/workflows")}
+                  href="#/workflows"
                 />
               </div>
             </section>
@@ -218,18 +218,16 @@ function CountCard({
   icon: Icon,
   label,
   count,
-  onClick,
+  href,
 }: {
   icon: typeof Bot;
   label: string;
   count: number;
-  onClick: () => void;
+  href: string;
 }) {
   return (
-    <Card
-      className="cursor-pointer py-0 transition-colors hover:bg-muted/50"
-      onClick={onClick}
-    >
+    <a href={href} className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Card className="py-0 transition-colors hover:bg-muted/50">
       <CardContent className="flex items-center gap-3 p-3">
         <Icon className="size-4 text-muted-foreground" />
         <div>
@@ -238,6 +236,7 @@ function CountCard({
         </div>
       </CardContent>
     </Card>
+    </a>
   );
 }
 

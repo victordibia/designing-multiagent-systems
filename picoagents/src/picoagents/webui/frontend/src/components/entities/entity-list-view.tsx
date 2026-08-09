@@ -5,7 +5,7 @@
  */
 
 import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, BookOpen, Brain, Play, Wrench } from "lucide-react";
+import { AlertTriangle, BookOpen, Brain, ChevronRight, Wrench } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,13 +89,14 @@ export function EntityListView({
 }
 
 function EntityCard({ entity, section }: { entity: Entity; section: string }) {
-  const open = () => navigate(`/${section}/${encodeURIComponent(entity.id)}`);
+  const href = `#/${section}/${encodeURIComponent(entity.id)}`;
   const agent = entity as AgentInfo;
   const orchestrator = entity as OrchestratorInfo;
   const workflow = entity as WorkflowInfo;
 
   return (
-    <Card className="cursor-pointer py-0 transition-colors hover:bg-muted/40" onClick={open}>
+    <a href={href} className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Card className="py-0 transition-colors group-hover:bg-muted/40">
       <CardContent className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -106,9 +107,7 @@ function EntityCard({ entity, section }: { entity: Entity; section: string }) {
               </p>
             )}
           </div>
-          <Button size="sm" variant="ghost" className="h-7 shrink-0" onClick={open}>
-            <Play className="size-3.5" /> Open
-          </Button>
+          <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" />
         </div>
 
         {entity.instructions && (
@@ -154,5 +153,6 @@ function EntityCard({ entity, section }: { entity: Entity; section: string }) {
         )}
       </CardContent>
     </Card>
+    </a>
   );
 }

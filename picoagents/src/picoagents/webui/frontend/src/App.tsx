@@ -259,6 +259,7 @@ function AppShell() {
         <EmptyState
           icon={SearchX}
           title="Failed to load entities"
+            className="px-4"
           description={loadError}
           action={
             <Button variant="outline" size="sm" onClick={refreshEntities}>
@@ -274,6 +275,7 @@ function AppShell() {
         <EmptyState
           icon={SearchX}
           title="Not found"
+            className="px-4"
           description={`No ${entityType} named "${subId}" is loaded. It may have been removed.`}
           action={
             <Button variant="outline" size="sm" onClick={() => navigate(`/${section}`)}>

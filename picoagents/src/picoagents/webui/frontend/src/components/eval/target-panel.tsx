@@ -47,7 +47,7 @@ export function TargetPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b">
+      <div className="flex items-center gap-2 border-b px-4 py-3">
         <h3 className="text-sm font-semibold">Targets</h3>
         <div className="ml-auto flex items-center gap-1">
           <Button
@@ -188,7 +188,7 @@ function CreateTargetForm({
   };
 
   return (
-    <div className="p-3 border-b bg-muted/30 space-y-2">
+    <div className="border-b bg-muted/30 px-4 py-3 space-y-2">
       <p className="text-xs font-medium">Create target configuration</p>
       <div className="space-y-1.5">
         <div>

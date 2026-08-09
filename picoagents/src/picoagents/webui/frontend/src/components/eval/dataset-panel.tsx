@@ -73,7 +73,7 @@ export function DatasetPanel() {
   if (selectedDataset) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 p-3 border-b">
+        <div className="flex items-center gap-2 border-b px-4 py-3">
           <Button
             variant="ghost"
             size="sm"
@@ -103,7 +103,7 @@ export function DatasetPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b">
+      <div className="flex items-center gap-2 border-b px-4 py-3">
         <h3 className="text-sm font-semibold">Datasets</h3>
         <div className="ml-auto flex items-center gap-1">
           <Button
@@ -138,7 +138,7 @@ export function DatasetPanel() {
       <div className="flex-1 overflow-auto">
         {/* Import panel */}
         {showImport && (
-          <div className="p-3 border-b bg-muted/30 space-y-2">
+          <div className="border-b bg-muted/30 px-4 py-3 space-y-2">
             <p className="text-xs font-medium">Import built-in dataset</p>
             {builtins.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -282,7 +282,7 @@ function CreateDatasetForm({
   };
 
   return (
-    <div className="p-3 border-b bg-muted/30 space-y-2">
+    <div className="border-b bg-muted/30 px-4 py-3 space-y-2">
       <p className="text-xs font-medium">Create dataset</p>
       <div className="space-y-1.5">
         <div>
