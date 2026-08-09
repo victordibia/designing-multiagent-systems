@@ -21,10 +21,12 @@ try:
     from anthropic import RateLimitError as AnthropicRateLimitError
     from anthropic.types import Message as AnthropicMessage
     from anthropic.types import ContentBlock, ToolUseBlock
-except ImportError:
-    raise ImportError(
-        "Anthropic library not installed. Please install with: pip install anthropic>=0.73.0"
-    )
+    _ANTHROPIC_AVAILABLE = True
+except ImportError:  # optional extra - fail when the client is used, not on import
+    _ANTHROPIC_AVAILABLE = False
+    APIError = AsyncAnthropic = AsyncMessageStream = None  # type: ignore[assignment,misc]
+    AnthropicAuthError = AnthropicRateLimitError = None  # type: ignore[assignment,misc]
+    AnthropicMessage = ContentBlock = ToolUseBlock = None  # type: ignore[assignment,misc]
 
 from .._component_config import Component
 from ..messages import AssistantMessage, Message, ToolCallRequest
@@ -77,7 +79,15 @@ class AnthropicChatCompletionClient(
             api_key: Anthropic API key (will use ANTHROPIC_API_KEY env var if not provided)
             base_url: Custom base URL for API calls
             **kwargs: Additional Anthropic client configuration
+
+        Raises:
+            ImportError: If the optional `anthropic` extra is not installed.
         """
+        if not _ANTHROPIC_AVAILABLE:
+            raise ImportError(
+                "AnthropicChatCompletionClient requires the anthropic extra. "
+                'Install it with: pip install "picoagents[anthropic]"'
+            )
         super().__init__(model, api_key, **kwargs)
 
         self.client = AsyncAnthropic(

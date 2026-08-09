@@ -133,12 +133,10 @@ class McpPlayground:
 
 
 def _find_lab_dir() -> Optional[Path]:
-    # webui/ -> picoagents pkg -> src -> picoagents project -> repo root
-    candidate = Path(__file__).resolve().parents[4] / "examples" / "mcp_lab"
-    if not candidate.is_dir():
-        logger.info("MCP lab servers not found (source checkout only); no presets")
-        return None
-    return candidate
+    """Directory of the demo servers shipped inside the package."""
+    from .mcp.servers import SERVERS_DIR
+
+    return SERVERS_DIR if SERVERS_DIR.is_dir() else None
 
 
 AUTH_LAB_PORT = 8931

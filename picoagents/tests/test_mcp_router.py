@@ -8,7 +8,6 @@ from examples/mcp_lab/ spawned over stdio - the same path the UI exercises.
 import sys
 import threading
 import time
-from pathlib import Path
 
 import pytest
 
@@ -24,8 +23,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from picoagents.webui._server import PicoAgentsWebUIServer  # noqa: E402
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-LAB_DIR = REPO_ROOT / "examples" / "mcp_lab"
+from picoagents.webui.mcp.servers import SERVERS_DIR as LAB_DIR  # noqa: E402
 
 
 @pytest.fixture

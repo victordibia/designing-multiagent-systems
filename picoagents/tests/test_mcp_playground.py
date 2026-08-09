@@ -19,7 +19,6 @@ import socket
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 import pytest
 
@@ -39,8 +38,7 @@ from picoagents.tools import (  # noqa: E402
     StdioServerConfig,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-LAB_DIR = REPO_ROOT / "examples" / "mcp_lab"
+from picoagents.webui.mcp.servers import SERVERS_DIR as LAB_DIR  # noqa: E402
 
 
 def load_lab_server(filename: str):
