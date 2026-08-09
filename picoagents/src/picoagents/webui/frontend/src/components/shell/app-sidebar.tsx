@@ -14,6 +14,7 @@ import {
   GitBranch,
   History,
   LayoutDashboard,
+  Plus,
   Trash2,
   Users,
 } from "lucide-react";
@@ -42,6 +43,8 @@ interface AppSidebarProps {
   mcpServers: McpServerSummary[];
   /** Called for entities that can be removed (gallery/memory sourced). */
   onDeleteEntity?: (entity: Entity) => void;
+  /** Open the MCP add-server dialog from anywhere in the app. */
+  onAddMcpServer?: () => void;
 }
 
 interface EntitySectionSpec {
@@ -57,7 +60,13 @@ const ENTITY_SECTIONS: EntitySectionSpec[] = [
   { key: "workflows", label: "Workflows", icon: GitBranch, type: "workflow" },
 ];
 
-export function AppSidebar({ segments, entities, mcpServers, onDeleteEntity }: AppSidebarProps) {
+export function AppSidebar({
+  segments,
+  entities,
+  mcpServers,
+  onDeleteEntity,
+  onAddMcpServer,
+}: AppSidebarProps) {
   const { open } = useSidebar();
   const [section, selectedId] = segments;
 
@@ -193,7 +202,7 @@ export function AppSidebar({ segments, entities, mcpServers, onDeleteEntity }: A
         <SidebarGroup>
           <SidebarGroupLabel>Tools</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
+            <SidebarMenuItem className="group/mcp">
               <SidebarMenuButton
                 isActive={section === "mcp" && !selectedId}
                 tooltip="MCP Playground"
@@ -201,6 +210,27 @@ export function AppSidebar({ segments, entities, mcpServers, onDeleteEntity }: A
               >
                 <Cable className="size-4 shrink-0" />
                 <SidebarMenuLabel>MCP Playground</SidebarMenuLabel>
+                {open && onAddMcpServer && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title="Add MCP server"
+                    className="ml-auto rounded p-0.5 text-sidebar-foreground/40 opacity-0 transition-opacity hover:text-sidebar-foreground group-hover/mcp:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddMcpServer();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onAddMcpServer();
+                      }
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                  </span>
+                )}
               </SidebarMenuButton>
               {mcpServers.length > 0 && (
                 <SidebarMenuSub>

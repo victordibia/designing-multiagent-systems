@@ -97,8 +97,14 @@ export function SidebarMenu({ children }: { children: React.ReactNode }) {
   return <ul className="flex flex-col gap-0.5">{children}</ul>;
 }
 
-export function SidebarMenuItem({ children }: { children: React.ReactNode }) {
-  return <li className="relative">{children}</li>;
+export function SidebarMenuItem({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <li className={cn("relative", className)}>{children}</li>;
 }
 
 interface SidebarMenuButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

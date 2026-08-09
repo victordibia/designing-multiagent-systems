@@ -209,6 +209,7 @@ function AppShell() {
     [refreshEntities]
   );
 
+  const [mcpAddOpen, setMcpAddOpen] = useState(false);
   const [pendingDeleteEntity, setPendingDeleteEntity] = useState<Entity | null>(null);
   const handleDeleteEntity = useCallback(async () => {
     if (!pendingDeleteEntity) return;
@@ -350,6 +351,8 @@ function AppShell() {
             servers={mcpServers}
             selectedServerId={subId}
             onServersChanged={refreshMcpServers}
+            addOpen={mcpAddOpen}
+            onAddOpenChange={setMcpAddOpen}
           />
         );
       default:
@@ -364,6 +367,10 @@ function AppShell() {
         entities={entities}
         mcpServers={mcpServers}
         onDeleteEntity={setPendingDeleteEntity}
+        onAddMcpServer={() => {
+          navigate("/mcp");
+          setMcpAddOpen(true);
+        }}
       />
       <SidebarInset>
         <TopBar

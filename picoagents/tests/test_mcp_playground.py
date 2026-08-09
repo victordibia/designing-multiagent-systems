@@ -351,13 +351,37 @@ async def test_mcp_app_is_advertised_discovered_and_readable():
     )
     async with manager.managed_connection("apps"):
         client = await manager.get_client("apps")
-        tool = next(t for t in (await client.list_tools()).tools if t.name == "roll_die")
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+        assert "sales_dashboard" in tools
 
-        uri = app_resource_uri(getattr(tool, "meta", None))
-        assert uri == "ui://dice/app.html"
+        uri = app_resource_uri(getattr(tools["sales_dashboard"], "meta", None))
+        assert uri == "ui://sales/app.html"
 
         html = await manager.read_app_resource("apps", uri)
-        assert html is not None and "<script>" in html
+        assert html is not None
+        # The app speaks the ext-apps bridge: handshake then tools/call
+        assert "ui/initialize" in html
+        assert "tools/call" in html
+
+
+@pytest.mark.anyio
+async def test_app_bridge_tool_is_callable_by_the_host():
+    """The app calls query_sales over the bridge; the host proxies it here."""
+    manager = MCPClientManager()
+    manager.add_server(
+        InMemoryServerConfig(server_id="apps", server=load_lab_server("apps_server.py"))
+    )
+    async with manager.managed_connection("apps"):
+        client = await manager.get_client("apps")
+        result = await client.call_tool(
+            "query_sales", arguments={"region": "europe", "metric": "units"}
+        )
+        # MCPServer wraps a dict return under "result"
+        payload = result.structured_content["result"]
+        assert payload["region"] == "europe"
+        assert payload["metric"] == "units"
+        assert len(payload["values"]) == len(payload["months"])
+        assert payload["total"] == sum(payload["values"])
 
 
 @pytest.mark.anyio

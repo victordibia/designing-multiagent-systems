@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Play } from "lucide-react";
 import { mcpApiClient } from "@/services/mcp-api";
+import { AppFrame } from "./app-frame";
 import type { McpCallResult, McpToolInfo } from "@/types/mcp";
 
 function schemaSkeleton(schema: Record<string, any>): Record<string, any> {
@@ -42,6 +43,7 @@ interface ToolTesterProps {
 export function ToolTester({ serverId, tool }: ToolTesterProps) {
   const [appHtml, setAppHtml] = useState<string | null>(null);
   const [appError, setAppError] = useState<string | null>(null);
+  const [lastArgs, setLastArgs] = useState<Record<string, any> | null>(null);
   const [argsText, setArgsText] = useState("{}");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<McpCallResult | null>(null);
@@ -70,6 +72,7 @@ export function ToolTester({ serverId, tool }: ToolTesterProps) {
       setParseError(e instanceof Error ? e.message : "Invalid JSON");
       return;
     }
+    setLastArgs(args);
     setRunning(true);
     setResult(null);
     try {
@@ -114,16 +117,16 @@ export function ToolTester({ serverId, tool }: ToolTesterProps) {
             <p className="text-xs text-muted-foreground">Loading app...</p>
           ) : (
             <>
-              <iframe
-                title={`${tool.name} app`}
-                srcDoc={appHtml}
-                sandbox="allow-scripts"
-                referrerPolicy="no-referrer"
-                className="h-64 w-full rounded-md border bg-background"
+              <AppFrame
+                serverId={serverId}
+                html={appHtml}
+                toolName={tool.name}
+                toolInput={lastArgs ?? undefined}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Served by the MCP server, rendered in a sandboxed frame with no
-                access to this page, its origin, or your session.
+                Sandboxed with an opaque origin: the app cannot reach this page,
+                its storage, or your session. Tool calls it makes are proxied to
+                the server and appear in the Wire tab.
               </p>
             </>
           )}

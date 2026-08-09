@@ -7,7 +7,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Cable, CircleSlash, Loader2, Plus, PlugZap, Trash2 } from "lucide-react";
+import {
+  Cable,
+  ChevronRight,
+  CircleSlash,
+  Loader2,
+  Plus,
+  PlugZap,
+  Trash2,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,9 +62,18 @@ interface McpViewProps {
   servers: McpServerSummary[];
   selectedServerId?: string;
   onServersChanged: () => void;
+  /** Controlled add-server dialog, so the sidebar can open it too. */
+  addOpen?: boolean;
+  onAddOpenChange?: (open: boolean) => void;
 }
 
-export function McpView({ servers, selectedServerId, onServersChanged }: McpViewProps) {
+export function McpView({
+  servers,
+  selectedServerId,
+  onServersChanged,
+  addOpen: addOpenProp,
+  onAddOpenChange,
+}: McpViewProps) {
   const [tab, setTab] = useState<McpTab>("overview");
   const [serverInfo, setServerInfo] = useState<McpServerInfo | null>(null);
   const [tools, setTools] = useState<McpToolInfo[]>([]);
@@ -64,7 +81,9 @@ export function McpView({ servers, selectedServerId, onServersChanged }: McpView
   const [wireFrames, setWireFrames] = useState<McpWireFrame[]>([]);
   const [pendingInputs, setPendingInputs] = useState<McpPendingInput[]>([]);
   const [busy, setBusy] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpenLocal, setAddOpenLocal] = useState(false);
+  const addOpen = addOpenProp ?? addOpenLocal;
+  const setAddOpen = onAddOpenChange ?? setAddOpenLocal;
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedIdRef = useRef<string | undefined>(selectedServerId);
@@ -175,21 +194,56 @@ export function McpView({ servers, selectedServerId, onServersChanged }: McpView
               title="No servers configured"
               description="Add a server or pick a lab preset, then connect and explore its tools with full wire visibility."
               action={
-                <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+                <Button size="sm" onClick={() => setAddOpen(true)}>
                   <Plus className="size-3.5" /> Add server
                 </Button>
               }
             />
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Pick a server from the sidebar to inspect it.
-            </p>
+            <div className="max-w-4xl space-y-2">
+              {servers.map((server) => (
+                <a
+                  key={server.server_id}
+                  href={`#/mcp/${encodeURIComponent(server.server_id)}`}
+                  className="flex items-center gap-3 rounded-md border px-3 py-2.5 outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Cable className="size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-mono text-sm font-medium">
+                        {server.server_id}
+                      </span>
+                      <StatusBadge status={server.status} />
+                      <Badge variant="outline" className="text-xs">
+                        {server.transport}
+                      </Badge>
+                    </div>
+                    <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                      {server.url ??
+                        [server.command, ...(server.args ?? [])].join(" ")}
+                    </div>
+                  </div>
+                  {server.status === "connected" && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {server.tool_count} tools
+                    </span>
+                  )}
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground/40" />
+                </a>
+              ))}
+            </div>
           )}
-          <div className="mt-6 max-w-4xl">
-            <h2 className="mb-2 text-sm font-medium">Spec support in this environment</h2>
-            <SpecSupportView />
-          </div>
+
+          <details className="mt-6 max-w-4xl">
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+              Spec support in this environment
+            </summary>
+            <div className="mt-3">
+              <SpecSupportView />
+            </div>
+          </details>
         </div>
+
         <AddServerDialog
           open={addOpen}
           onOpenChange={setAddOpen}
