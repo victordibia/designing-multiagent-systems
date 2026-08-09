@@ -160,7 +160,11 @@ apps = Apps()
 
 @apps.tool(
     resource_uri="ui://sales/app.html",
-    description="Open the interactive sales explorer.",
+    description=(
+        "Report six-month sales for one region (north, south, or europe). "
+        "Returns a text summary; clients that support MCP Apps also render "
+        "an interactive chart of the same data."
+    ),
 )
 def sales_dashboard(region: str = "north") -> str:
     """Summarize sales for a region. Renders an interactive chart when the
@@ -173,7 +177,11 @@ def sales_dashboard(region: str = "north") -> str:
 @apps.tool(
     resource_uri="ui://sales/app.html",
     visibility=["app"],
-    description="Query sales data for a region and metric (called by the app).",
+    description=(
+        "Return the six-month sales series for a region (north, south, or "
+        "europe) and metric (revenue or units), with per-month values and "
+        "their total."
+    ),
 )
 def query_sales(region: str = "north", metric: str = "revenue") -> Dict[str, Any]:
     """Return a series the app renders. Invoked from inside the iframe."""
