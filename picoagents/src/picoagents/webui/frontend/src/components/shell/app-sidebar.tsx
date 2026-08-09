@@ -21,6 +21,7 @@ import {
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -45,6 +46,8 @@ interface AppSidebarProps {
   onDeleteEntity?: (entity: Entity) => void;
   /** Open the MCP add-server dialog from anywhere in the app. */
   onAddMcpServer?: () => void;
+  /** picoagents version serving this UI. */
+  version?: string;
 }
 
 interface EntitySectionSpec {
@@ -66,6 +69,7 @@ export function AppSidebar({
   mcpServers,
   onDeleteEntity,
   onAddMcpServer,
+  version,
 }: AppSidebarProps) {
   const { open } = useSidebar();
   const [section, selectedId] = segments;
@@ -260,6 +264,14 @@ export function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
+
+      {open && version && (
+        <SidebarFooter>
+          <span className="px-2 text-xs text-sidebar-foreground/40">
+            picoagents {version}
+          </span>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 }

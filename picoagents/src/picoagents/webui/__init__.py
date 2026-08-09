@@ -24,8 +24,6 @@ from ._sessions import SessionManager
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-__version__ = "0.1.0"
-
 
 def launch(
     entities_dir: Optional[str] = None,

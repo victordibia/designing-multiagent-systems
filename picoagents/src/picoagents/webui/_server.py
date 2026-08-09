@@ -27,6 +27,12 @@ from ._sessions import SessionManager
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def _picoagents_version() -> str:
+    from picoagents import __version__
+
+    return __version__
+
+
 class RunEntityRequest(BaseModel):
     """Request model for entity execution - minimal wrapper around PicoAgents types."""
 
@@ -123,7 +129,7 @@ class PicoAgentsWebUIServer:
         app = FastAPI(
             title="PicoAgents WebUI",
             description="Web interface for interacting with PicoAgents entities",
-            version="0.1.0",
+            version=_picoagents_version(),
             lifespan=lifespan,
         )
 
@@ -176,6 +182,7 @@ class PicoAgentsWebUIServer:
                 status="healthy",
                 entities_dir=self.entities_dir,
                 entities_count=len(entities),
+                version=_picoagents_version(),
                 persistence_enabled=self._store is not None,
                 mcp_available=bool(MCP_AVAILABLE),
             )

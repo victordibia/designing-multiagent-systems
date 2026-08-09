@@ -367,6 +367,7 @@ function AppShell() {
         entities={entities}
         mcpServers={mcpServers}
         onDeleteEntity={setPendingDeleteEntity}
+        version={health?.version}
         onAddMcpServer={() => {
           navigate("/mcp");
           setMcpAddOpen(true);

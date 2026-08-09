@@ -74,7 +74,16 @@ export function OverviewView({ entities, mcpServers, loading }: OverviewViewProp
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="Overview"
+        title={
+          <>
+            Overview
+            {health?.version && (
+              <span className="text-sm font-normal text-muted-foreground">
+                picoagents {health.version}
+              </span>
+            )}
+          </>
+        }
         description={
           health?.entities_dir
             ? `Scanning ${health.entities_dir}`

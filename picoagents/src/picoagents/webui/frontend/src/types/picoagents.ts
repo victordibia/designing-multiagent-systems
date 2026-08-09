@@ -223,6 +223,7 @@ export interface RunEntityRequest {
 // Health Check
 export interface HealthResponse {
   status: string;
+  version: string;
   entities_dir?: string | null;
   entities_count: number;
   persistence_enabled: boolean;

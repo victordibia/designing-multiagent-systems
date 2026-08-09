@@ -166,7 +166,18 @@ from .workflow import (
     WorkflowRunner,
 )
 
-__version__ = "0.4.0"
+def _detect_version() -> str:
+    """Version from installed package metadata; pyproject.toml is the source
+    of truth. Falls back for a source tree that was never installed."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("picoagents")
+    except PackageNotFoundError:  # pragma: no cover - source checkout only
+        return "0.0.0+unknown"
+
+
+__version__: str = _detect_version()
 
 __all__ = [
     # Context

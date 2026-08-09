@@ -85,6 +85,7 @@ class HealthResponse(BaseModel):
     """WebUI-specific: Health check response."""
 
     status: str = Field(description="Health status")
+    version: str = Field("", description="picoagents version serving this UI")
     entities_dir: Optional[str] = Field(default=None, description="Directory being scanned")
     entities_count: int = Field(0, description="Number of discovered entities")
     persistence_enabled: bool = Field(
