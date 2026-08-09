@@ -151,6 +151,7 @@ def get_presets() -> List[Dict[str, Any]]:
         ("basic_server", "Plain tools, structured output, progress"),
         ("mrtr_server", "Mid-call input (MRTR) via elicitation"),
         ("notify_server", "Runtime tool registry changes"),
+        ("apps_server", "MCP Apps: a tool with an interactive HTML panel"),
     ]:
         path = lab_dir / f"{name}.py"
         if path.exists():
@@ -244,7 +245,8 @@ def get_spec_support() -> Dict[str, Any]:
     check(
         "apps",
         "MCP Apps",
-        "Interactive UI extension (server side)",
+        "Server-side in the SDK; the client half (reading and rendering the "
+        "ui:// resource) is implemented by this playground, not by the SDK",
         lambda: has_module("mcp.server.apps"),
     )
     check(

@@ -120,6 +120,7 @@ class LLMEvalJudge(BaseEvalJudge):
                     "model": result.model,
                     "criteria_used": eval_criteria,
                     "raw_response": result.message.content,
+                    "judge_usage": result.usage,  # tokens/cost of the judge call itself
                 },
             )
 

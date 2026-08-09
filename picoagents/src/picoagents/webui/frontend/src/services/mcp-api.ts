@@ -93,6 +93,13 @@ class McpApiClient {
     });
   }
 
+  /** MCP Apps: the HTML for a tool's ui:// resource. */
+  readApp(serverId: string, uri: string): Promise<{ uri: string; html: string }> {
+    return this.request(
+      `/api/mcp/servers/${serverId}/app?uri=${encodeURIComponent(uri)}`
+    );
+  }
+
   getPendingInputs(): Promise<McpPendingInput[]> {
     return this.request("/api/mcp/inputs");
   }

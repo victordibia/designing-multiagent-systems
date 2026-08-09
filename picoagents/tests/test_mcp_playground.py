@@ -332,3 +332,43 @@ async def test_streamable_http_transport_against_lab_server(http_lab_server):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ============================================================================
+# MCP Apps (io.modelcontextprotocol/ui)
+# ============================================================================
+
+
+@pytest.mark.anyio
+async def test_mcp_app_is_advertised_discovered_and_readable():
+    """The SDK has no client-side Apps support: advertising the extension is
+    what makes a server annotate its tools, and the caller reads the resource."""
+    from picoagents.tools._mcp._client import app_resource_uri
+
+    manager = MCPClientManager()
+    manager.add_server(
+        InMemoryServerConfig(server_id="apps", server=load_lab_server("apps_server.py"))
+    )
+    async with manager.managed_connection("apps"):
+        client = await manager.get_client("apps")
+        tool = next(t for t in (await client.list_tools()).tools if t.name == "roll_die")
+
+        uri = app_resource_uri(getattr(tool, "meta", None))
+        assert uri == "ui://dice/app.html"
+
+        html = await manager.read_app_resource("apps", uri)
+        assert html is not None and "<script>" in html
+
+
+@pytest.mark.anyio
+async def test_tool_without_an_app_has_no_resource_uri():
+    from picoagents.tools._mcp._client import app_resource_uri
+
+    manager = MCPClientManager()
+    manager.add_server(
+        InMemoryServerConfig(server_id="lab", server=load_lab_server("basic_server.py"))
+    )
+    async with manager.managed_connection("lab"):
+        client = await manager.get_client("lab")
+        tool = next(t for t in (await client.list_tools()).tools if t.name == "add")
+        assert app_resource_uri(getattr(tool, "meta", None)) is None

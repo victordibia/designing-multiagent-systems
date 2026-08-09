@@ -40,6 +40,8 @@ interface ToolTesterProps {
 }
 
 export function ToolTester({ serverId, tool }: ToolTesterProps) {
+  const [appHtml, setAppHtml] = useState<string | null>(null);
+  const [appError, setAppError] = useState<string | null>(null);
   const [argsText, setArgsText] = useState("{}");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<McpCallResult | null>(null);
@@ -50,7 +52,14 @@ export function ToolTester({ serverId, tool }: ToolTesterProps) {
     setArgsText(JSON.stringify(schemaSkeleton(tool.input_schema), null, 2));
     setResult(null);
     setParseError(null);
-  }, [serverId, tool.name]);
+    setAppHtml(null);
+    setAppError(null);
+    if (!tool.app_resource_uri) return;
+    mcpApiClient
+      .readApp(serverId, tool.app_resource_uri)
+      .then((r) => setAppHtml(r.html))
+      .catch((e) => setAppError(e instanceof Error ? e.message : String(e)));
+  }, [serverId, tool.name, tool.app_resource_uri]);
 
   const run = async () => {
     let args: Record<string, any>;
@@ -90,6 +99,36 @@ export function ToolTester({ serverId, tool }: ToolTesterProps) {
           <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
         )}
       </div>
+
+      {tool.app_resource_uri && (
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <span className="text-xs font-medium">App</span>
+            <Badge variant="outline" className="font-mono text-xs">
+              {tool.app_resource_uri}
+            </Badge>
+          </div>
+          {appError ? (
+            <p className="text-xs text-destructive">{appError}</p>
+          ) : appHtml === null ? (
+            <p className="text-xs text-muted-foreground">Loading app...</p>
+          ) : (
+            <>
+              <iframe
+                title={`${tool.name} app`}
+                srcDoc={appHtml}
+                sandbox="allow-scripts"
+                referrerPolicy="no-referrer"
+                className="h-64 w-full rounded-md border bg-background"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Served by the MCP server, rendered in a sandboxed frame with no
+                access to this page, its origin, or your session.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       <div>
         <div className="text-xs font-medium mb-1">Arguments (JSON)</div>

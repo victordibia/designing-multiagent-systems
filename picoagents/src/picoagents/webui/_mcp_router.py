@@ -208,6 +208,8 @@ async def capabilities(request: Request, server_id: str) -> Dict[str, Any]:
 
 
 async def _tool_listing(manager: Any, server_id: str) -> List[Dict[str, Any]]:
+    from picoagents.tools._mcp._client import app_resource_uri
+
     client = await manager.get_client(server_id)
     result = await client.list_tools()
     return [
@@ -217,6 +219,8 @@ async def _tool_listing(manager: Any, server_id: str) -> List[Dict[str, Any]]:
             "description": tool.description,
             "input_schema": tool.input_schema,
             "output_schema": tool.output_schema,
+            # MCP Apps: the ui:// resource this tool renders with, if any
+            "app_resource_uri": app_resource_uri(getattr(tool, "meta", None)),
         }
         for tool in result.tools
     ]
@@ -232,6 +236,22 @@ async def list_tools(request: Request, server_id: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Invocation
 # ---------------------------------------------------------------------------
+
+
+@router.get("/servers/{server_id}/app")
+async def read_app(request: Request, server_id: str, uri: str) -> Dict[str, Any]:
+    """Read an MCP App's HTML so the playground can render it sandboxed."""
+    playground = get_playground(request)
+    manager = _require_connected(playground, server_id)
+    if not uri.startswith("ui://"):
+        raise HTTPException(status_code=400, detail="Not an app resource URI")
+    try:
+        html = await manager.read_app_resource(server_id, uri)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not read app resource: {e}")
+    if html is None:
+        raise HTTPException(status_code=404, detail="App resource has no text content")
+    return {"uri": uri, "html": html}
 
 
 @router.post("/servers/{server_id}/tools/{tool_name}/call")

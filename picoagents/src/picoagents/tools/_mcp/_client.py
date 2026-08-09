@@ -32,6 +32,33 @@ that elicit input receive a decline.
 """
 
 
+def _client_extensions() -> List[Any]:
+    """Extensions this client advertises during negotiation.
+
+    MCP Apps (`io.modelcontextprotocol/ui`) has no client implementation in
+    the SDK: advertising it is what makes a server annotate tools with their
+    `ui://` resource, which the caller then reads and renders itself.
+    """
+    try:
+        from mcp.client.extension import advertise
+        from mcp.server.apps import APP_MIME_TYPE, EXTENSION_ID
+
+        return [advertise(EXTENSION_ID, {"mimeTypes": [APP_MIME_TYPE]})]
+    except ImportError:  # pragma: no cover - older SDKs without the apps module
+        return []
+
+
+def app_resource_uri(tool_meta: Optional[Dict[str, Any]]) -> Optional[str]:
+    """The `ui://` app resource a tool is annotated with, if any."""
+    if not tool_meta:
+        return None
+    ui = tool_meta.get("ui")
+    if isinstance(ui, dict):
+        uri = ui.get("resourceUri")
+        return uri if isinstance(uri, str) else None
+    return None
+
+
 class MCPClientManager:
     """
     Manages connections to MCP servers and provides tool discovery.
@@ -163,6 +190,7 @@ class MCPClientManager:
                 if self._elicitation_handler
                 else None
             ),
+            extensions=_client_extensions(),
         )
 
         # The client's context (and its anyio cancel scopes) must be entered
@@ -296,6 +324,16 @@ class MCPClientManager:
             "capabilities": dump(getattr(client, "server_capabilities", None)),
             "instructions": getattr(client, "instructions", None),
         }
+
+    async def read_app_resource(self, server_id: str, uri: str) -> Optional[str]:
+        """Read an MCP App's HTML. Returns None if the resource has no text."""
+        client = await self.get_client(server_id)
+        result = await client.read_resource(uri)
+        for item in result.contents:
+            text = getattr(item, "text", None)
+            if text:
+                return str(text)
+        return None
 
     def get_wire_frames(self, server_id: str) -> List[WireFrame]:
         """Return recorded wire frames for a server (empty if tap disabled)."""

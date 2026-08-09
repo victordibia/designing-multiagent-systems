@@ -10,6 +10,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+def _ensure_skill_frontmatter(name: str, content: str) -> str:
+    """Ensure a SKILL.md body has YAML frontmatter for JIT discovery.
+
+    The optimizer edits skills as free-form text. If a generated skill omits the
+    frontmatter that picoagents' SkillsTool needs to surface it (name/description),
+    synthesize a minimal block from the skill name so it still loads on demand.
+    """
+    if content.lstrip().startswith("---"):
+        return content
+    first_line = next((ln.strip() for ln in content.splitlines() if ln.strip()), name)
+    description = (first_line.lstrip("# ").strip() or name)[:200]
+    return f"---\nname: {name}\ndescription: {description}\n---\n\n{content}"
+
+
 @dataclass
 class AgentConfig:
     """Complete agent configuration for evaluation.
@@ -46,6 +60,12 @@ class AgentConfig:
     tools: List[str] = field(default_factory=lambda: ["coding"])
     max_iterations: int = 30
 
+    # Optimizable text artifacts (used by picoagents.optim).
+    # skills: name -> markdown skill body, appended to instructions.
+    # tool_descriptions: tool name -> description override applied at build time.
+    skills: Dict[str, str] = field(default_factory=dict)
+    tool_descriptions: Dict[str, str] = field(default_factory=dict)
+
     # Optional tuning
     temperature: float = 0.0
 
@@ -75,6 +95,8 @@ class AgentConfig:
             "temperature": self.temperature,
             "workspace": self.workspace,
             "bash_timeout": self.bash_timeout,
+            "skills": self.skills,
+            "tool_descriptions": self.tool_descriptions,
             "extra_kwargs": self.extra_kwargs,
         }
 
@@ -95,6 +117,8 @@ class AgentConfig:
             max_iterations=data.get("max_iterations", 30),
             temperature=data.get("temperature", 0.0),
             bash_timeout=data.get("bash_timeout", 300),
+            skills=data.get("skills", {}),
+            tool_descriptions=data.get("tool_descriptions", {}),
             extra_kwargs=data.get("extra_kwargs", {}),
         )
 
@@ -196,8 +220,12 @@ class AgentConfig:
     def _create_tools(self):
         """Create tools based on configuration.
 
-        If ``tool_instances`` is set, those instances are used directly
-        (overrides the ``tools`` category list).
+        Each entry in ``self.tools`` is either a category (``"coding"``, ``"core"``)
+        which expands to its whole tool group, or the name of an individual tool
+        (e.g. ``"calculator"``, ``"bash_execute"``) for granular selection - this is
+        what ``optim.ToolSelectionTunable`` mutates when adding/removing a tool.
+
+        If ``tool_instances`` is set, those instances are used directly.
         """
         if self.tool_instances is not None:
             return list(self.tool_instances)
@@ -205,16 +233,25 @@ class AgentConfig:
         from ..tools import create_coding_tools, create_core_tools
 
         workspace = Path(self.workspace) if self.workspace else None
-        all_tools = []
+        coding = create_coding_tools(workspace=workspace, bash_timeout=self.bash_timeout)
+        core = create_core_tools()
+        by_name = {t.name: t for t in (*coding, *core)}
 
-        for tool_category in self.tools:
-            if tool_category == "coding":
-                all_tools.extend(create_coding_tools(
-                    workspace=workspace,
-                    bash_timeout=self.bash_timeout,
-                ))
-            elif tool_category == "core":
-                all_tools.extend(create_core_tools())
+        all_tools = []
+        seen = set()
+        for entry in self.tools:
+            if entry == "coding":
+                group = coding
+            elif entry == "core":
+                group = core
+            elif entry in by_name:
+                group = [by_name[entry]]  # individual tool by name
+            else:
+                continue  # unknown entry - skip (catalog guarantees valid names)
+            for tool in group:
+                if tool.name not in seen:
+                    seen.add(tool.name)
+                    all_tools.append(tool)
 
         return all_tools
 
@@ -233,6 +270,16 @@ class AgentConfig:
         compaction = self._create_compaction()
         tools = self._create_tools()
 
+        # Apply tool description overrides (optimizable via picoagents.optim).
+        if self.tool_descriptions:
+            for tool in tools:
+                override = self.tool_descriptions.get(getattr(tool, "name", ""))
+                if override and hasattr(tool, "description"):
+                    try:
+                        tool.description = override
+                    except Exception:
+                        pass  # frozen/immutable tools are left as-is
+
         # Resolve instructions: preset takes priority over raw system_prompt
         if self.instruction_preset:
             from .._instructions import get_instructions
@@ -244,6 +291,27 @@ class AgentConfig:
             )
         else:
             instructions = self.system_prompt
+
+        # Translate optimizable skills (held as SKILL.md text in the config) into
+        # what an agent actually consumes: a skills directory exposed through the
+        # progressive-disclosure SkillsTool. The optimizer edits the text; the
+        # agent discovers/loads skills on demand, exactly like on-disk skills.
+        if self.skills:
+            import tempfile
+
+            from ..tools import create_skills_tool
+
+            base = Path(self.workspace) if self.workspace else Path(
+                tempfile.mkdtemp(prefix="pico_skills_")
+            )
+            skills_dir = base / ".picoagents_skills"
+            for skill_name, skill_md in self.skills.items():
+                skill_path = skills_dir / skill_name
+                skill_path.mkdir(parents=True, exist_ok=True)
+                (skill_path / "SKILL.md").write_text(
+                    _ensure_skill_frontmatter(skill_name, skill_md)
+                )
+            tools = list(tools) + [create_skills_tool(extra_paths=[skills_dir])]
 
         return Agent(
             name=self.name,

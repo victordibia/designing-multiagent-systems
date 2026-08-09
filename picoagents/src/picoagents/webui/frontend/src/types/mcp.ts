@@ -27,6 +27,8 @@ export interface McpToolInfo {
   description: string | null;
   input_schema: Record<string, any>;
   output_schema: Record<string, any> | null;
+  /** MCP Apps: the ui:// resource this tool renders with, if any. */
+  app_resource_uri: string | null;
 }
 
 export interface McpCallResult {
