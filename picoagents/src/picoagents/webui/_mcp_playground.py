@@ -171,23 +171,32 @@ def get_presets() -> List[Dict[str, Any]]:
 # ----------------------------------------------------------------------
 
 
-def introspect_python_sdk() -> Dict[str, Any]:
+def get_spec_support() -> Dict[str, Any]:
     """
-    Live feature check of the installed `mcp` package.
+    What the installed mcp package supports, probed live.
 
-    This is the self-verifying column of the support matrix: statuses are
-    derived from what the package actually exposes, not from documentation.
+    Every status is derived from what the package actually exposes, so this
+    cannot drift from reality the way a hand-maintained table would.
     """
-    checks: Dict[str, Dict[str, Any]] = {}
-
-    def check(feature: str, probe: Any, note: str) -> None:
-        try:
-            status = "shipped" if probe() else "missing"
-        except Exception:
-            status = "missing"
-        checks[feature] = {"status": status, "note": note}
-
     import importlib
+
+    import mcp.types as t
+
+    features: List[Dict[str, Any]] = []
+
+    def check(key: str, label: str, description: str, probe: Any) -> None:
+        try:
+            supported = bool(probe())
+        except Exception:
+            supported = False
+        features.append(
+            {
+                "key": key,
+                "label": label,
+                "description": description,
+                "status": "shipped" if supported else "missing",
+            }
+        )
 
     def has_module(name: str) -> bool:
         try:
@@ -196,45 +205,59 @@ def introspect_python_sdk() -> Dict[str, Any]:
         except ImportError:
             return False
 
-    import mcp.types as t
-
-    check(
-        "stateless-core",
-        lambda: hasattr(t, "DiscoverRequest") and t.LATEST_PROTOCOL_VERSION >= "2026-07-28",
-        "server/discover + per-request _meta",
-    )
-    check(
-        "mrtr",
-        lambda: hasattr(t, "InputRequiredResult"),
-        "InputRequiredResult + elicitation callback",
-    )
-    check(
-        "tasks-types",
-        lambda: hasattr(t, "GetTaskRequest"),
-        "Tasks wire types in mcp.types",
-    )
-
-    def tasks_runtime_probe() -> bool:
+    def tasks_runtime() -> bool:
         from mcp.client import Client
 
         return any("task" in n.lower() for n in dir(Client))
 
     check(
+        "stateless-core",
+        "Stateless core",
+        "server/discover with per-request version and capabilities; no initialize handshake",
+        lambda: hasattr(t, "DiscoverRequest")
+        and t.LATEST_PROTOCOL_VERSION >= "2026-07-28",
+    )
+    check(
+        "mrtr",
+        "Multi Round-Trip Requests",
+        "Mid-call input without holding a connection open",
+        lambda: hasattr(t, "InputRequiredResult"),
+    )
+    check(
+        "tasks-types",
+        "Tasks wire types",
+        "Task request and result types are defined",
+        lambda: hasattr(t, "GetTaskRequest"),
+    )
+    check(
         "tasks",
-        tasks_runtime_probe,
-        "Client-side Tasks runtime (polling, tasks/get)",
+        "Tasks runtime",
+        "Client-side durable task handling: tasks/get polling, tasks/update",
+        tasks_runtime,
     )
     check(
         "extensions",
+        "Extensions",
+        "Opt-in extension negotiation framework",
         lambda: has_module("mcp.client.extension"),
-        "Extension negotiation framework",
     )
-    check("apps", lambda: has_module("mcp.server.apps"), "MCP Apps (server-side)")
-    check("auth", lambda: has_module("mcp.client.auth"), "OAuth resource-server model")
+    check(
+        "apps",
+        "MCP Apps",
+        "Interactive UI extension (server side)",
+        lambda: has_module("mcp.server.apps"),
+    )
+    check(
+        "auth",
+        "Authorization",
+        "OAuth 2.0 resource-server model",
+        lambda: has_module("mcp.client.auth"),
+    )
     check(
         "subscriptions",
+        "Subscriptions",
+        "subscriptions/listen change notifications",
         lambda: has_module("mcp.client.subscriptions"),
-        "subscriptions/listen stream",
     )
 
     try:
@@ -244,24 +267,9 @@ def introspect_python_sdk() -> Dict[str, Any]:
     except Exception:
         version = "unknown"
 
-    return {"sdk": "python", "version": version, "source": "introspected", "features": checks}
-
-
-def get_support_matrix() -> Dict[str, Any]:
-    """Static per-SDK matrix merged with live Python introspection."""
-    matrix_path = Path(__file__).with_name("mcp_support_matrix.json")
-    data: Dict[str, Any] = json.loads(matrix_path.read_text())
-    python_live = introspect_python_sdk()
-    for sdk in data.get("sdks", []):
-        if sdk.get("sdk") == "python":
-            sdk["version"] = python_live["version"]
-            sdk["source"] = "introspected"
-            # live probe wins over static claims
-            for feature, result in python_live["features"].items():
-                if feature in sdk.get("features", {}):
-                    sdk["features"][feature]["status"] = result["status"]
-                else:
-                    sdk.setdefault("features", {})[feature] = result
-            break
-    data["protocol_version"] = "2026-07-28"
-    return data
+    return {
+        "sdk": "python",
+        "version": version,
+        "protocol_version": getattr(t, "LATEST_PROTOCOL_VERSION", "unknown"),
+        "features": features,
+    }

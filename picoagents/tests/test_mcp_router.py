@@ -54,20 +54,22 @@ def _add_lab_server(client: TestClient, server_id: str, filename: str) -> None:
 # ============================================================================
 
 
-def test_support_matrix_python_column_is_introspected(client):
+def test_spec_support_is_probed_from_the_installed_sdk(client):
+    """Support is derived from the installed package, never a curated table."""
     data = client.get("/api/mcp/support").json()
+    assert data["sdk"] == "python"
     assert data["protocol_version"] == "2026-07-28"
+    assert data["version"] != "unknown"
 
-    python_row = next(s for s in data["sdks"] if s["sdk"] == "python")
-    assert python_row["source"] == "introspected"
-    assert python_row["version"] not in ("static-fallback", "unknown")
+    features = {f["key"]: f for f in data["features"]}
+    # Every feature carries display copy so the UI needs no second source
+    assert all(f["label"] and f["description"] for f in features.values())
 
-    features = python_row["features"]
     # What SDK 2.0 verifiably ships today
     assert features["stateless-core"]["status"] == "shipped"
     assert features["mrtr"]["status"] == "shipped"
     assert features["tasks-types"]["status"] == "shipped"
-    # The honest gap: wire types exist, runtime does not
+    # The honest gap: wire types exist, the client runtime does not
     assert features["tasks"]["status"] == "missing"
 
 

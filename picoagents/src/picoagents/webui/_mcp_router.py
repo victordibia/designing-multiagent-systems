@@ -5,7 +5,7 @@ REST + SSE surface for the WebUI MCP playground:
 - Discovery: capabilities and tools
 - Invocation: direct tool calls, MRTR input replies
 - Observability: wire frames, SSE event stream
-- SDK support matrix
+- Spec support of the installed SDK
 """
 
 from __future__ import annotations
@@ -82,10 +82,11 @@ def _config_summary(config: Any, connected: bool, tool_count: int) -> Dict[str, 
 
 
 @router.get("/support")
-async def support_matrix() -> Dict[str, Any]:
-    from ._mcp_playground import get_support_matrix
+async def spec_support() -> Dict[str, Any]:
+    """What the installed mcp package supports, probed live."""
+    from ._mcp_playground import get_spec_support
 
-    return get_support_matrix()
+    return get_spec_support()
 
 
 @router.get("/presets")

@@ -10,7 +10,7 @@ import type {
   McpPreset,
   McpServerInfo,
   McpServerSummary,
-  McpSupportMatrix,
+  McpSpecSupport,
   McpToolInfo,
   McpWireFrame,
 } from "@/types/mcp";
@@ -45,7 +45,7 @@ class McpApiClient {
     return response.json();
   }
 
-  getSupportMatrix(): Promise<McpSupportMatrix> {
+  getSpecSupport(): Promise<McpSpecSupport> {
     return this.request("/api/mcp/support");
   }
 

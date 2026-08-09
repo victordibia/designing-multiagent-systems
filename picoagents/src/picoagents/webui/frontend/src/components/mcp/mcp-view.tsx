@@ -21,7 +21,7 @@ import { navigate } from "@/lib/router";
 import { mcpApiClient } from "@/services/mcp-api";
 import { AddServerDialog } from "./add-server-dialog";
 import { InputBanner } from "./input-banner";
-import { SupportMatrixView } from "./support-matrix";
+import { SpecSupportView } from "./spec-support";
 import { ToolTester } from "./tool-tester";
 import { WireLog } from "./wire-log";
 import type {
@@ -32,7 +32,7 @@ import type {
   McpWireFrame,
 } from "@/types/mcp";
 
-type McpTab = "overview" | "tools" | "wire" | "tasks" | "matrix";
+type McpTab = "overview" | "tools" | "wire" | "tasks";
 
 /** The picoagents code that attaches this exact server to an agent. */
 function agentSnippet(server: McpServerSummary): string {
@@ -186,8 +186,8 @@ export function McpView({ servers, selectedServerId, onServersChanged }: McpView
             </p>
           )}
           <div className="mt-6 max-w-4xl">
-            <h2 className="mb-2 text-sm font-medium">SDK support matrix</h2>
-            <SupportMatrixView />
+            <h2 className="mb-2 text-sm font-medium">Spec support in this environment</h2>
+            <SpecSupportView />
           </div>
         </div>
         <AddServerDialog
@@ -284,7 +284,6 @@ export function McpView({ servers, selectedServerId, onServersChanged }: McpView
                   { value: "tools", label: `Tools (${tools.length})` },
                   { value: "wire", label: `Wire (${wireFrames.length})` },
                   { value: "tasks", label: "Tasks" },
-                  { value: "matrix", label: "SDK Matrix" },
                 ]}
               />
 
@@ -385,12 +384,6 @@ export function McpView({ servers, selectedServerId, onServersChanged }: McpView
                     when it lands - see the SDK Matrix for current status.
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {tab === "matrix" && (
-                <div className="max-w-4xl">
-                  <SupportMatrixView />
-                </div>
               )}
             </>
           )}

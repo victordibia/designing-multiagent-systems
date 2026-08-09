@@ -62,19 +62,17 @@ export interface McpPreset {
   args: string[];
 }
 
-export type McpFeatureStatus = "shipped" | "partial" | "missing" | "unknown";
+export type McpFeatureStatus = "shipped" | "missing";
 
-export interface McpSupportMatrix {
-  as_of: string;
-  notes: string;
+export interface McpSpecSupport {
+  sdk: string;
+  version: string;
   protocol_version: string;
-  features: Array<{ key: string; label: string; description: string }>;
-  sdks: Array<{
-    sdk: string;
+  features: Array<{
+    key: string;
     label: string;
-    version: string;
-    source: "introspected" | "curated";
-    features: Record<string, { status: McpFeatureStatus; note?: string }>;
+    description: string;
+    status: McpFeatureStatus;
   }>;
 }
 
