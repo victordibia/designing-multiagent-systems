@@ -6,8 +6,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EvalRunDetail } from "@/components/eval/eval-run-detail";
+import { navigate } from "@/lib/router";
 import { evalApiClient } from "@/services/eval-api";
 import {
   Play,
@@ -165,11 +167,21 @@ export function EvalRunsPanel() {
             Loading eval runs...
           </div>
         ) : evalRuns.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            <Activity className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            No eval runs yet. Create a dataset and targets, then launch an
-            evaluation.
-          </div>
+          <EmptyState
+            icon={Activity}
+            title="No evaluation runs yet"
+            description="An evaluation scores one or more targets against a dataset of tasks. You need a dataset and at least one target first."
+            action={
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => navigate("/evaluation/datasets")}>
+                  Go to Datasets
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => navigate("/evaluation/targets")}>
+                  Go to Targets
+                </Button>
+              </div>
+            }
+          />
         ) : (
           <div className="divide-y">
             {evalRuns.map((run) => (
@@ -312,9 +324,14 @@ function LaunchEvalForm({
       <div>
         <Label className="text-xs">Dataset</Label>
         {datasets.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No datasets. Create one first.
-          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => navigate("/evaluation/datasets")}
+          >
+            No datasets yet - create one
+          </Button>
         ) : (
           <select
             value={selectedDataset}
@@ -334,9 +351,14 @@ function LaunchEvalForm({
       <div>
         <Label className="text-xs">Targets (select one or more)</Label>
         {targets.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No targets. Create one first.
-          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => navigate("/evaluation/targets")}
+          >
+            No targets yet - create one
+          </Button>
         ) : (
           <div className="space-y-1 mt-1">
             {targets.map((t) => (

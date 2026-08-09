@@ -12,6 +12,7 @@ import { AppSidebar } from "@/components/shell/app-sidebar";
 import { TopBar, type Crumb } from "@/components/shell/top-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AgentView } from "@/components/agent/agent-view";
 import { OrchestratorView } from "@/components/orchestrator/orchestrator-view";
@@ -19,6 +20,8 @@ import { WorkflowView } from "@/components/workflow/workflow-view";
 import { RunsView } from "@/components/runs/runs-view";
 import { EvalView } from "@/components/eval/eval-view";
 import { McpView } from "@/components/mcp/mcp-view";
+import { OverviewView } from "@/components/overview/overview-view";
+import { EntityListView } from "@/components/entities/entity-list-view";
 import { ExamplesGallery } from "@/components/shared/examples-gallery";
 import { DebugPanel } from "@/components/shared/debug-panel";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -28,6 +31,7 @@ import { mcpApiClient } from "@/services/mcp-api";
 import type {
   AgentInfo,
   Entity,
+  HealthResponse,
   OrchestratorInfo,
   SessionInfo,
   StreamEvent,
@@ -41,7 +45,14 @@ const SECTION_TYPE: Record<string, Entity["type"]> = {
   workflows: "workflow",
 };
 
+const SECTION_BLURB: Record<string, string> = {
+  agents: "A single agent: one model, its instructions, and the tools it can call.",
+  orchestrators: "Several agents coordinated by a pattern - round-robin, AI-selected, or plan-based.",
+  workflows: "A deterministic pipeline of steps with a typed input, no model in the loop deciding order.",
+};
+
 const SECTION_LABEL: Record<string, string> = {
+  overview: "Overview",
   agents: "Agents",
   orchestrators: "Orchestrators",
   workflows: "Workflows",
@@ -62,6 +73,12 @@ export default function App() {
 function AppShell() {
   const segs = useSegments();
   const [section, subId] = segs;
+
+  // ---- server capabilities (scanned dir, persistence, mcp) ----
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  useEffect(() => {
+    apiClient.getHealth().then(setHealth).catch(() => setHealth(null));
+  }, []);
 
   // ---- entities ----
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -148,17 +165,11 @@ function AppShell() {
     entityType && subId ? entities.find((e) => e.type === entityType && e.id === subId) : undefined;
   const isEntityPage = Boolean(selectedEntity);
 
-  // Redirect "/" to /agents; auto-open the first entity on bare type routes
+  // "/" is the Overview landing page. Section routes list their entities
+  // rather than silently redirecting into an arbitrary one.
   useEffect(() => {
-    if (!section) {
-      navigate("/agents", { replace: true });
-      return;
-    }
-    if (entityType && !subId && !entitiesLoading) {
-      const first = entities.find((e) => e.type === entityType);
-      if (first) navigate(`/${section}/${encodeURIComponent(first.id)}`, { replace: true });
-    }
-  }, [section, subId, entityType, entities, entitiesLoading]);
+    if (!section) navigate("/overview", { replace: true });
+  }, [section]);
 
   // Ensure a session exists for the routed entity; clear debug on change
   useEffect(() => {
@@ -247,8 +258,13 @@ function AppShell() {
       return (
         <EmptyState
           icon={SearchX}
-          title="Failed to load"
+          title="Failed to load entities"
           description={loadError}
+          action={
+            <Button variant="outline" size="sm" onClick={refreshEntities}>
+              Retry
+            </Button>
+          }
         />
       );
     }
@@ -258,7 +274,12 @@ function AppShell() {
         <EmptyState
           icon={SearchX}
           title="Not found"
-          description={`No ${entityType} named "${subId}". Pick one from the sidebar.`}
+          description={`No ${entityType} named "${subId}" is loaded. It may have been removed.`}
+          action={
+            <Button variant="outline" size="sm" onClick={() => navigate(`/${section}`)}>
+              Back to {SECTION_LABEL[section]}
+            </Button>
+          }
         />
       );
     }
@@ -266,15 +287,13 @@ function AppShell() {
     if (entityType && !subId) {
       const icon = section === "agents" ? Bot : section === "orchestrators" ? Users : GitBranch;
       return (
-        <EmptyState
+        <EntityListView
+          section={section}
+          label={SECTION_LABEL[section]}
           icon={icon}
-          title={`No ${SECTION_LABEL[section].toLowerCase()} yet`}
-          description={
-            <>
-              Nothing was discovered in your entities directory. Load one from
-              the <a className="underline" href="#/gallery">examples gallery</a> to get started.
-            </>
-          }
+          description={SECTION_BLURB[section]}
+          entities={entities.filter((e) => e.type === entityType)}
+          entitiesDir={health?.entities_dir}
         />
       );
     }
@@ -309,10 +328,18 @@ function AppShell() {
     }
 
     switch (section) {
+      case "overview":
+        return (
+          <OverviewView
+            entities={entities}
+            mcpServers={mcpServers}
+            loading={entitiesLoading}
+          />
+        );
       case "gallery":
         return <ExamplesGallery onExampleLoaded={handleExampleLoaded} />;
       case "history":
-        return <RunsView selectedRunId={subId} />;
+        return <RunsView selectedRunId={subId} entities={entities} />;
       case "evaluation":
         return <EvalView tab={subId || "runs"} />;
       case "mcp":
@@ -354,7 +381,7 @@ function AppShell() {
                 title="Drag to resize · double-click to close"
               />
               <div className="shrink-0" style={{ width: debugWidth }}>
-                <DebugPanel events={debugEvents} />
+                <DebugPanel events={debugEvents} onClear={() => setDebugEvents([])} />
               </div>
             </>
           )}

@@ -34,6 +34,22 @@ import type {
 
 type McpTab = "overview" | "tools" | "wire" | "tasks" | "matrix";
 
+/** The picoagents code that attaches this exact server to an agent. */
+function agentSnippet(server: McpServerSummary): string {
+  const config =
+    server.transport === "stdio"
+      ? `StdioServerConfig(\n    server_id="${server.server_id}",\n    command="${server.command ?? ""}",\n    args=${JSON.stringify(server.args ?? [])},\n)`
+      : `HTTPServerConfig(\n    server_id="${server.server_id}",\n    url="${server.url ?? ""}",\n)`;
+  return `from picoagents.tools import create_mcp_tools, ${
+    server.transport === "stdio" ? "StdioServerConfig" : "HTTPServerConfig"
+  }
+
+manager, tools = await create_mcp_tools([
+  ${config}
+])
+agent = Agent(name="my_agent", tools=tools, model_client=client)`;
+}
+
 interface McpViewProps {
   servers: McpServerSummary[];
   selectedServerId?: string;
@@ -273,12 +289,43 @@ export function McpView({ servers, selectedServerId, onServersChanged }: McpView
               />
 
               {tab === "overview" && (
-                <div className="max-w-4xl space-y-3">
+                <div className="max-w-4xl space-y-4">
                   {serverInfo ? (
                     <>
                       {serverInfo.instructions && (
                         <p className="text-sm text-muted-foreground">{serverInfo.instructions}</p>
                       )}
+                      <div>
+                        <div className="mb-1 text-xs font-medium">Connection</div>
+                        <div className="rounded-md border p-2 text-xs">
+                          <div className="flex gap-2">
+                            <span className="w-24 shrink-0 text-muted-foreground">Transport</span>
+                            <span className="font-mono">{selected.transport}</span>
+                          </div>
+                          <div className="mt-1 flex gap-2">
+                            <span className="w-24 shrink-0 text-muted-foreground">Target</span>
+                            <span className="break-all font-mono">
+                              {selected.url ??
+                                [selected.command, ...(selected.args ?? [])].join(" ")}
+                            </span>
+                          </div>
+                          {serverInfo.server_info?.name && (
+                            <div className="mt-1 flex gap-2">
+                              <span className="w-24 shrink-0 text-muted-foreground">Reports as</span>
+                              <span className="font-mono">
+                                {String(serverInfo.server_info.name)}
+                                {serverInfo.server_info.version
+                                  ? ` ${serverInfo.server_info.version}`
+                                  : ""}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs font-medium">Use these tools in an agent</div>
+                        <JsonBlock value={agentSnippet(selected)} />
+                      </div>
                       <div>
                         <div className="mb-1 text-xs font-medium">Capabilities</div>
                         <JsonBlock value={serverInfo.capabilities} />
@@ -290,7 +337,19 @@ export function McpView({ servers, selectedServerId, onServersChanged }: McpView
                 </div>
               )}
 
-              {tab === "tools" && (
+              {tab === "tools" && tools.length === 0 && (
+                <EmptyState
+                  icon={Cable}
+                  title="This server exposes no tools"
+                  description="It connected and negotiated fine, but tools/list came back empty. Check the Wire tab to see the exchange."
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => setTab("wire")}>
+                      Open wire log
+                    </Button>
+                  }
+                />
+              )}
+              {tab === "tools" && tools.length > 0 && (
                 <div className="flex max-w-5xl gap-4">
                   <div className="w-48 shrink-0 space-y-0.5">
                     {tools.map((tool) => (

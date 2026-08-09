@@ -13,6 +13,7 @@ import {
   FlaskConical,
   GitBranch,
   History,
+  LayoutDashboard,
   Trash2,
   Users,
 } from "lucide-react";
@@ -65,7 +66,7 @@ export function AppSidebar({ segments, entities, mcpServers, onDeleteEntity }: A
       <SidebarHeader className={cn(!open && "justify-center px-0")}>
         <button
           className="flex items-center gap-2 text-sm font-semibold outline-none"
-          onClick={() => navigate("/agents")}
+          onClick={() => navigate("/overview")}
         >
           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Bot className="size-4" />
@@ -75,6 +76,21 @@ export function AppSidebar({ segments, entities, mcpServers, onDeleteEntity }: A
       </SidebarHeader>
 
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={section === "overview"}
+                tooltip="Overview"
+                onClick={() => navigate("/overview")}
+              >
+                <LayoutDashboard className="size-4 shrink-0" />
+                <SidebarMenuLabel>Overview</SidebarMenuLabel>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel>Build</SidebarGroupLabel>
           <SidebarMenu>

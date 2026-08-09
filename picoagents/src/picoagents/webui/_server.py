@@ -167,10 +167,17 @@ class PicoAgentsWebUIServer:
         async def health_check():
             """Health check endpoint."""
             entities = self.registry.list_entities()
+            try:
+                from picoagents.tools import MCP_AVAILABLE
+            except ImportError:
+                MCP_AVAILABLE = False
+
             return HealthResponse(
                 status="healthy",
                 entities_dir=self.entities_dir,
                 entities_count=len(entities),
+                persistence_enabled=self._store is not None,
+                mcp_available=bool(MCP_AVAILABLE),
             )
 
         @app.get("/api/entities", response_model=List[Entity])

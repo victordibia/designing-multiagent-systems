@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,7 @@ import type { TargetConfig } from "@/types/eval";
 
 export function TargetPanel() {
   const [targets, setTargets] = useState<TargetConfig[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<TargetConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -121,7 +123,7 @@ export function TargetPanel() {
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 shrink-0"
-                  onClick={() => handleDelete(target.id)}
+                  onClick={() => setPendingDelete(target)}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
@@ -130,6 +132,15 @@ export function TargetPanel() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title="Delete target?"
+        description={`This removes the evaluation target "${pendingDelete?.name}". Past evaluation runs keep their results.`}
+        confirmLabel="Delete"
+        onConfirm={() => pendingDelete && handleDelete(pendingDelete.id)}
+      />
     </div>
   );
 }

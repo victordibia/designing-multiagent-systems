@@ -112,6 +112,7 @@ export interface EntityInfo {
   module_path?: string;
   tools: string[];
   has_env: boolean;
+  instructions?: string | null;
   example_tasks?: string[];
 }
 
@@ -222,8 +223,10 @@ export interface RunEntityRequest {
 // Health Check
 export interface HealthResponse {
   status: string;
-  entities_dir?: string;
+  entities_dir?: string | null;
   entities_count: number;
+  persistence_enabled: boolean;
+  mcp_available: boolean;
 }
 
 // Type Guards

@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Clock, Cpu, History, RefreshCw, Search, Trash2, Zap } from "lucide-react";
+import { ChevronRight, Clock, Cpu, History, RefreshCw, Search, Trash2, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { RunDetail } from "@/components/runs/run-detail";
 import { navigate } from "@/lib/router";
 import { evalApiClient } from "@/services/eval-api";
+import type { Entity } from "@/types";
 import type { Run } from "@/types/eval";
 
 type RunTypeFilter = "all" | "agent" | "orchestrator" | "eval_task";
@@ -25,9 +26,11 @@ type RunTypeFilter = "all" | "agent" | "orchestrator" | "eval_task";
 interface RunsViewProps {
   /** Routed run id for the detail page (undefined = list). */
   selectedRunId?: string;
+  /** Loaded entities, so a run can link back to what produced it. */
+  entities?: Entity[];
 }
 
-export function RunsView({ selectedRunId }: RunsViewProps) {
+export function RunsView({ selectedRunId, entities = [] }: RunsViewProps) {
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +109,7 @@ export function RunsView({ selectedRunId }: RunsViewProps) {
         />
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selectedRun ? (
-            <RunDetail run={selectedRun} />
+            <RunDetail run={selectedRun} entities={entities} />
           ) : loading ? (
             <div className="space-y-3 p-4">
               <Skeleton className="h-6 w-64" />
@@ -188,8 +191,26 @@ export function RunsView({ selectedRunId }: RunsViewProps) {
             title={runs.length === 0 ? "No recorded executions yet" : "No matches"}
             description={
               runs.length === 0
-                ? "Runs are recorded when persistence is enabled on agent or orchestrator execution."
-                : "No runs match your search."
+                ? "Every agent and orchestrator execution is recorded here. Open an agent and send it a task, then come back."
+                : `No runs match "${searchQuery}"${filter !== "all" ? ` in ${filter}` : ""}.`
+            }
+            action={
+              runs.length === 0 ? (
+                <Button size="sm" onClick={() => navigate("/agents")}>
+                  Open an agent
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilter("all");
+                  }}
+                >
+                  Clear search and filters
+                </Button>
+              )
             }
           />
         ) : (
@@ -268,6 +289,7 @@ function RunRow({
           {run.llm_calls}
         </span>
         <span className="text-muted-foreground/60">{timeAgo}</span>
+        <ChevronRight className="size-3.5 text-muted-foreground/40" />
         <Button
           variant="ghost"
           size="icon"

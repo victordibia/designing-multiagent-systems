@@ -211,7 +211,7 @@ export function ExamplesGallery({ onExampleLoaded }: ExamplesGalleryProps) {
   };
 
   return (
-    <div className="w-full max-w-6xl p-6">
+    <div className="w-full max-w-6xl p-4">
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Try Example Agents, Workflows & Orchestrators</h2>

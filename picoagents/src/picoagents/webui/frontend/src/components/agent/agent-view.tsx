@@ -107,6 +107,11 @@ export function AgentView({
                     {selectedAgent.description}
                   </p>
                 )}
+                {selectedAgent.instructions && (
+                  <p className="mt-1 line-clamp-2 rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
+                    {selectedAgent.instructions}
+                  </p>
+                )}
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Bug,
   MessageSquare,
@@ -27,6 +28,7 @@ import type { StreamEvent } from "@/types";
 interface DebugPanelProps {
   events: StreamEvent[];
   isStreaming?: boolean;
+  onClear?: () => void;
 }
 
 const getEventIcon = (eventType: string) => {
@@ -195,7 +197,7 @@ function EventsSummary({ events }: { events: StreamEvent[] }) {
   );
 }
 
-export function DebugPanel({ events, isStreaming }: DebugPanelProps) {
+export function DebugPanel({ events, isStreaming = false, onClear }: DebugPanelProps) {
   const recentEvents = events.slice(-50); // Keep only last 50 events for performance
 
   return (
@@ -211,8 +213,15 @@ export function DebugPanel({ events, isStreaming }: DebugPanelProps) {
             </Badge>
           )}
         </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {events.length} events total
+        <div className="mt-1 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {events.length} events total
+          </span>
+          {onClear && events.length > 0 && (
+            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={onClear}>
+              Clear
+            </Button>
+          )}
         </div>
       </div>
 

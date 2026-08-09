@@ -15,14 +15,19 @@ import {
   DollarSign,
   ExternalLink,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { navigate } from "@/lib/router";
+import type { Entity } from "@/types";
 import type { Run, RunData } from "@/types/eval";
 import type { Message } from "@/types/picoagents";
 
 interface RunDetailProps {
   run: Run;
+  /** Loaded entities, to offer 'open the agent that produced this'. */
+  entities?: Entity[];
 }
 
-export function RunDetail({ run }: RunDetailProps) {
+export function RunDetail({ run, entities = [] }: RunDetailProps) {
   const [runData, setRunData] = useState<RunData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,12 +62,28 @@ export function RunDetail({ run }: RunDetailProps) {
 
   const messages: Message[] = runData?.response?.messages ?? [];
 
+  const producer = entities.find(
+    (e) => e.name === run.agent_name || e.id === run.agent_name
+  );
+
   return (
     <div className="p-4 space-y-4">
       {/* Metadata header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="text-base font-semibold">{run.agent_name}</h3>
+          {producer && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() =>
+                navigate(`/${producer.type}s/${encodeURIComponent(producer.id)}`)
+              }
+            >
+              Open {producer.type}
+            </Button>
+          )}
           <Badge variant="outline" className="text-xs">
             {run.run_type}
           </Badge>

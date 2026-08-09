@@ -5,6 +5,7 @@
 
 import type {
   Entity,
+  HealthResponse,
   RunEntityRequest,
   SessionInfo,
   StreamEvent,
@@ -43,6 +44,11 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  /** Server state the UI needs to explain itself: scanned dir, capabilities. */
+  async getHealth(): Promise<HealthResponse> {
+    return this.request<HealthResponse>("/api/health");
   }
 
   // Entity discovery - unified endpoint

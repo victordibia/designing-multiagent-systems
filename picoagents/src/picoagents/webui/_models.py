@@ -21,6 +21,9 @@ class EntityInfo(BaseModel):
         default_factory=list, description="Available tools/functions"
     )
     has_env: bool = Field(False, description="Whether .env file exists")
+    instructions: Optional[str] = Field(
+        default=None, description="System prompt / instructions driving the entity"
+    )
     example_tasks: List[str] = Field(
         default_factory=list, description="Example tasks to help users discover capabilities"
     )
@@ -84,6 +87,10 @@ class HealthResponse(BaseModel):
     status: str = Field(description="Health status")
     entities_dir: Optional[str] = Field(default=None, description="Directory being scanned")
     entities_count: int = Field(0, description="Number of discovered entities")
+    persistence_enabled: bool = Field(
+        False, description="Whether run/eval persistence is available"
+    )
+    mcp_available: bool = Field(False, description="Whether the MCP playground is available")
 
 
 class AddExampleRequest(BaseModel):

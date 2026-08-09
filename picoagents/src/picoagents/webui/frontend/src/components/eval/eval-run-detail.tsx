@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { StatusBadge, ScoreBadge } from "@/components/shared/status-badge";
+import { navigate } from "@/lib/router";
 import { evalApiClient } from "@/services/eval-api";
 import {
   Clock,
@@ -104,6 +105,7 @@ export function EvalRunDetail({ evalRun }: EvalRunDetailProps) {
           <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1">
               Avg Score: <ScoreBadge score={avgScore} />
+              <span className="text-muted-foreground"> (0-10 scale)</span>
             </span>
             <span className="flex items-center gap-1">
               <CheckCircle className="h-3 w-3 text-green-500" />
@@ -228,6 +230,18 @@ function ResultRow({
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+          {result.run_id && (
+            <button
+              className="rounded px-1.5 py-0.5 text-xs underline-offset-2 hover:underline"
+              title="Open the recorded trajectory for this task"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/history/${encodeURIComponent(result.run_id!)}`);
+              }}
+            >
+              trajectory
+            </button>
+          )}
           <ScoreBadge score={result.overall_score} />
           <span>{dur}</span>
           <span>{result.total_tokens.toLocaleString()} tok</span>

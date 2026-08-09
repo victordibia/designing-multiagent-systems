@@ -419,9 +419,11 @@ class PicoAgentsScanner:
             else None
         )
         example_tasks = getattr(agent, "example_tasks", [])
+        instructions = getattr(agent, "instructions", None)
 
         return AgentInfo(
             **common_attrs,
+            instructions=instructions,
             type="agent",
             tools=tools,
             model=model,
