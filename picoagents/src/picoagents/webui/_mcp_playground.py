@@ -141,17 +141,22 @@ def _find_lab_dir() -> Optional[Path]:
     return candidate
 
 
+AUTH_LAB_PORT = 8931
+AUTH_LAB_TOKEN = "pico-lab-token"
+
+
 def get_presets() -> List[Dict[str, Any]]:
-    """One-click stdio configs for the lab servers, when available."""
+    """One-click configs for the lab servers, when the source tree is present."""
     lab_dir = _find_lab_dir()
     if lab_dir is None:
         return []
-    presets = []
+
+    presets: List[Dict[str, Any]] = []
     for name, description in [
         ("basic_server", "Plain tools, structured output, progress"),
         ("mrtr_server", "Mid-call input (MRTR) via elicitation"),
         ("notify_server", "Runtime tool registry changes"),
-        ("apps_server", "MCP Apps: a tool with an interactive HTML panel"),
+        ("apps_server", "MCP Apps: an interactive UI that calls back over the bridge"),
     ]:
         path = lab_dir / f"{name}.py"
         if path.exists():
@@ -164,6 +169,24 @@ def get_presets() -> List[Dict[str, Any]]:
                     "args": [str(path)],
                 }
             )
+
+    # Bearer auth is meaningless over stdio, so this one is HTTP and must be
+    # started separately; the note tells the UI to say so.
+    auth_path = lab_dir / "auth_server.py"
+    if auth_path.exists():
+        presets.append(
+            {
+                "server_id": "auth",
+                "description": "OAuth 2.0 protected resource: 401 challenge, then a bearer token",
+                "transport": "streamable-http",
+                "url": f"http://127.0.0.1:{AUTH_LAB_PORT}/mcp",
+                "headers": {"Authorization": f"Bearer {AUTH_LAB_TOKEN}"},
+                "note": (
+                    f"Start it first: python {auth_path}  "
+                    "(then connect; remove the Authorization header to see the 401)"
+                ),
+            }
+        )
     return presets
 
 

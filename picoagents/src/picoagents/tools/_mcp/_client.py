@@ -48,6 +48,19 @@ def _client_extensions() -> List[Any]:
         return []
 
 
+def _root_cause(exc: BaseException, depth: int = 0) -> str:
+    """Readable cause from an anyio TaskGroup's nested exception groups.
+
+    Transport failures (a 401, a refused connection) surface as
+    ExceptionGroups whose own message says nothing useful.
+    """
+    inner = getattr(exc, "exceptions", None)
+    if inner and depth < 5:
+        return "; ".join(_root_cause(e, depth + 1) for e in inner[:3])
+    text = str(exc).strip()
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
+
+
 def app_resource_uri(tool_meta: Optional[Dict[str, Any]]) -> Optional[str]:
     """The `ui://` app resource a tool is annotated with, if any."""
     if not tool_meta:
@@ -227,7 +240,7 @@ class MCPClientManager:
             stop.set()
             await asyncio.gather(task, return_exceptions=True)
             raise ConnectionError(
-                f"Failed to connect to MCP server '{server_id}': {e}"
+                f"Failed to connect to MCP server '{server_id}': {_root_cause(e)}"
             ) from e
 
         self._clients[server_id] = client

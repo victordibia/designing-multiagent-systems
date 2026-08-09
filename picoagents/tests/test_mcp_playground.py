@@ -14,6 +14,7 @@ proof that the presets work.
 """
 
 import importlib.util
+import json
 import socket
 import subprocess
 import sys
@@ -396,3 +397,84 @@ async def test_tool_without_an_app_has_no_resource_uri():
         client = await manager.get_client("lab")
         tool = next(t for t in (await client.list_tools()).tools if t.name == "add")
         assert app_resource_uri(getattr(tool, "meta", None)) is None
+
+
+# ============================================================================
+# Authorization: OAuth 2.0 protected resource
+# ============================================================================
+
+
+@pytest.fixture
+def http_auth_server():
+    port = _free_port()
+    proc = subprocess.Popen(
+        [sys.executable, str(LAB_DIR / "auth_server.py"), "--port", str(port)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        _wait_for_port(port)
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        proc.terminate()
+        proc.wait(timeout=5)
+
+
+def test_unauthenticated_request_gets_a_challenge(http_auth_server):
+    """The 2026 spec models servers as OAuth resource servers: refuse, and say
+    where the metadata lives."""
+    import urllib.error
+    import urllib.request
+
+    request = urllib.request.Request(
+        f"{http_auth_server}/mcp",
+        method="POST",
+        data=b'{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{}}',
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+    )
+    try:
+        urllib.request.urlopen(request)
+        pytest.fail("expected 401")
+    except urllib.error.HTTPError as e:
+        assert e.code == 401
+        challenge = e.headers.get("WWW-Authenticate", "")
+        assert "Bearer" in challenge
+        assert "resource_metadata=" in challenge
+
+    # RFC 9728 document is mounted automatically
+    with urllib.request.urlopen(
+        f"{http_auth_server}/.well-known/oauth-protected-resource"
+    ) as response:
+        metadata = json.loads(response.read())
+    assert metadata["scopes_supported"] == ["sales:read"]
+    assert metadata["authorization_servers"]
+
+
+@pytest.mark.anyio
+async def test_bearer_token_is_accepted(http_auth_server):
+    manager = MCPClientManager()
+    manager.add_server(
+        HTTPServerConfig(
+            server_id="auth",
+            url=f"{http_auth_server}/mcp",
+            headers={"Authorization": "Bearer pico-lab-token"},
+        )
+    )
+    async with manager.managed_connection("auth"):
+        tools = {t.mcp_tool_name: t for t in manager.get_tools("auth")}
+        result = await tools["whoami"].execute({})
+        assert "lab-user" in result.result["result"]
+
+
+@pytest.mark.anyio
+async def test_missing_token_surfaces_a_readable_error(http_auth_server):
+    """A TaskGroup's own message says nothing; the cause must reach the caller."""
+    manager = MCPClientManager()
+    manager.add_server(
+        HTTPServerConfig(server_id="auth", url=f"{http_auth_server}/mcp")
+    )
+    with pytest.raises(ConnectionError) as excinfo:
+        await manager.connect("auth")
+    message = str(excinfo.value)
+    assert "unhandled errors in a TaskGroup" not in message
+    assert "auth" in message

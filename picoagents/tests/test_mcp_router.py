@@ -74,10 +74,17 @@ def test_spec_support_is_probed_from_the_installed_sdk(client):
 
 
 def test_presets_include_lab_servers(client):
-    presets = client.get("/api/mcp/presets").json()
-    ids = [p["server_id"] for p in presets]
-    assert set(ids) >= {"basic", "mrtr", "notify"}
-    assert all(p["transport"] == "stdio" for p in presets)
+    presets = {p["server_id"]: p for p in client.get("/api/mcp/presets").json()}
+    assert set(presets) >= {"basic", "mrtr", "notify", "apps", "auth"}
+
+    # stdio presets are self-launching: command + args are enough
+    assert all(presets[k]["command"] for k in ("basic", "mrtr", "notify", "apps"))
+
+    # auth is HTTP-only (bearer auth is meaningless over stdio) and must be
+    # started separately, so it carries a url and an instruction note
+    assert presets["auth"]["transport"] == "streamable-http"
+    assert presets["auth"]["url"].endswith("/mcp")
+    assert "Start it first" in presets["auth"]["note"]
 
 
 # ============================================================================

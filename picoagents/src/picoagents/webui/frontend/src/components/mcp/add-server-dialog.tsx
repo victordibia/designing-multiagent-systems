@@ -94,20 +94,29 @@ export function AddServerDialog({ open, onOpenChange, onAdded }: AddServerDialog
               {presets.map((preset) => (
                 <button
                   key={preset.server_id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded border border-border hover:bg-muted/50 text-left text-xs"
+                  className="flex items-start gap-2 rounded border border-border px-2 py-1.5 text-left text-xs hover:bg-muted/50"
                   disabled={submitting}
                   onClick={() =>
                     submit({
                       server_id: preset.server_id,
-                      transport: "stdio",
+                      transport: preset.transport,
                       command: preset.command,
                       args: preset.args,
+                      url: preset.url,
+                      headers: preset.headers,
                     })
                   }
                 >
                   <FlaskConical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="font-mono font-medium">{preset.server_id}</span>
-                  <span className="text-muted-foreground truncate">{preset.description}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-mono font-medium">{preset.server_id}</span>{" "}
+                    <span className="text-muted-foreground">{preset.description}</span>
+                    {preset.note && (
+                      <span className="mt-0.5 block font-mono text-[11px] text-warning">
+                        {preset.note}
+                      </span>
+                    )}
+                  </span>
                 </button>
               ))}
             </div>

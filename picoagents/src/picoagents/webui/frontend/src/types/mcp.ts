@@ -59,9 +59,13 @@ export type McpEvent =
 export interface McpPreset {
   server_id: string;
   description: string;
-  transport: "stdio";
-  command: string;
-  args: string[];
+  transport: "stdio" | "streamable-http";
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  /** Shown when the preset needs the user to start something first. */
+  note?: string;
 }
 
 export type McpFeatureStatus = "shipped" | "missing";
