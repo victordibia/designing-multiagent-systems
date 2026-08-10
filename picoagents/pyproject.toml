@@ -118,6 +118,7 @@ picoagents = "picoagents.cli:main"
 Homepage = "https://github.com/victordibia/designing-multiagent-systems"
 Documentation = "https://github.com/victordibia/designing-multiagent-systems#readme"
 Repository = "https://github.com/victordibia/designing-multiagent-systems"
+Book = "https://buy.multiagentbook.com/?utm_source=pypi&utm_medium=project-links"
 
 
 [tool.hatch.build.targets.wheel]

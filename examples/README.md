@@ -1,6 +1,6 @@
 # PicoAgents Examples
 
-Runnable examples for the book "Designing Multi-Agent Systems" by Victor Dibia.
+Runnable examples for the book [Designing Multi-Agent Systems](https://buy.multiagentbook.com/?utm_source=github&utm_medium=readme-examples) by Victor Dibia. Each example maps to a book chapter that explains the theory and design trade-offs behind it.
 
 ## Quick Start
 

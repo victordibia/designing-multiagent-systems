@@ -4,7 +4,7 @@
 
 **An educational multi-agent framework built to teach you how multi-agent systems work from first principles.**
 
-Companion code for [**"Designing Multi-Agent Systems"**](https://buy.multiagentbook.com) by [Victor Dibia](https://victordibia.com). Every concept in the book is implemented here with clarity and best practices—so you can learn by reading the code and understanding exactly how it works.
+Companion code for [**"Designing Multi-Agent Systems"**](https://buy.multiagentbook.com/?utm_source=github&utm_medium=readme-picoagents) by [Victor Dibia](https://victordibia.com). Every concept in the book is implemented here with clarity and best practices—so you can learn by reading the code and understanding exactly how it works.
 
 > **Built for learning**: This framework prioritizes code clarity and pedagogical value over performance optimization.
 
@@ -91,12 +91,12 @@ See the [main repository](https://github.com/victordibia/designing-multiagent-sy
 ## Get the Book
 
 <p align="center">
-  <a href="https://buy.multiagentbook.com">
+  <a href="https://buy.multiagentbook.com/?utm_source=github&utm_medium=readme-picoagents">
     <img src="https://raw.githubusercontent.com/victordibia/designing-multiagent-systems/main/docs/images/bookcover.png" alt="Designing Multi-Agent Systems Book Cover" width="100%">
   </a>
 </p>
 
-**[Designing Multi-Agent Systems: Principles, Patterns, and Implementation for AI Agents](https://buy.multiagentbook.com)**
+**[Designing Multi-Agent Systems: Principles, Patterns, and Implementation for AI Agents](https://buy.multiagentbook.com/?utm_source=github&utm_medium=readme-picoagents)**
 
 This framework implements every concept from the book. The book provides:
 
@@ -105,7 +105,7 @@ This framework implements every concept from the book. The book provides:
 - **Real-world case studies** with complete implementations
 - **Evaluation strategies** for measuring system performance
 
-**[→ Buy Digital Edition](https://buy.multiagentbook.com)** | **[→ GitHub Repository](https://github.com/victordibia/designing-multiagent-systems)**
+**[→ Buy Digital Edition](https://buy.multiagentbook.com/?utm_source=github&utm_medium=readme-picoagents)** | **[→ GitHub Repository](https://github.com/victordibia/designing-multiagent-systems)**
 
 ## Development
 
@@ -150,4 +150,4 @@ MIT License - see LICENSE file for details.
 
 ---
 
-**Learn more**: [Book Website](https://buy.multiagentbook.com) | [GitHub](https://github.com/victordibia/designing-multiagent-systems) | [Documentation](https://github.com/victordibia/designing-multiagent-systems#readme)
+**Learn more**: [Book Website](https://buy.multiagentbook.com/?utm_source=github&utm_medium=readme-picoagents) | [GitHub](https://github.com/victordibia/designing-multiagent-systems) | [Documentation](https://github.com/victordibia/designing-multiagent-systems#readme)
