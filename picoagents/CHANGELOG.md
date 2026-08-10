@@ -5,6 +5,30 @@ All notable changes to PicoAgents will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MCP Playground** (`webui/mcp/`): add and connect MCP servers, invoke tools with generated argument skeletons, answer mid-call input (MRTR) prompts, and read the raw JSON-RPC traffic. Five demo servers ship in `webui/mcp/servers/` covering tools, MRTR, list-changed notifications, MCP Apps (interactive UIs that call tools back over the host bridge), and OAuth-protected resources.
+- **Persistence store** (`store/`): SQLModel-backed storage for runs and eval results, behind the `persist` extra. Powers the History page.
+- **Evaluation dashboard** (`webui/`): datasets, targets, and batch evaluation runs with live progress, and a link from each result to its recorded trajectory.
+- **Completion-check hook** (`_hooks.py`): verifies task completion with an LLM before the agent loop exits.
+- `ToolMessage.metadata` for tool-specific data such as sub-agent usage, preserved through the OpenAI and Azure OpenAI clients.
+
+### Changed
+
+- **BREAKING**: MCP integration requires `mcp>=2.0.0` (protocol 2026-07-28). Connections are stateless - `server/discover` replaces the `initialize` handshake. Environments with mcp 1.x now raise an explicit upgrade error instead of silently disabling MCP.
+- **BREAKING**: `eval/benchmarks/` was consolidated into `eval/`. `BaseEvalTarget`, `BaseEvalJudge`, `BaseEvalRunner`, `BaseJudge`, and the `benchmarks` submodule are no longer exported from `picoagents.eval`.
+- **BREAKING**: removed `POST /api/entities/{id}/run`; its backing method was deleted in 0.3.0, so every call returned a 500. Use `/run/stream`.
+- WebUI rebuilt around a collapsible sidebar with URL routing, an Overview landing page reporting what was discovered and from where, and empty states that link to the action they describe.
+- `picoagents.__version__` now reads installed package metadata, making `pyproject.toml` the single source of truth. The WebUI no longer carries its own version.
+
+### Fixed
+
+- `pip install picoagents` followed by `import picoagents` failed unless the optional `anthropic` extra was installed. The error is now raised when the Anthropic client is constructed, naming the extra.
+- MCP playground presets were empty for anyone who installed from PyPI: the demo servers lived in `examples/`, outside the wheel.
+- Eval runs cancelled during server shutdown stayed marked `running` forever.
+
 ## [0.4.0] - 2026-02-05
 
 ### Added
