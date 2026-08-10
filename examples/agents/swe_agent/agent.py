@@ -1,18 +1,22 @@
 """
 Software Engineering Agent Example
 
-This example demonstrates a software engineering agent that can:
-1. Plan and execute coding tasks using memory-based task tracking
-2. Remember patterns and decisions across runs
-3. Use file operations, code execution, and search
-4. Track progress and learn from experience
+Demonstrates a software engineering agent configured with:
+- Coding tools (file ops, execution, search)
+- Memory for persistent knowledge across tasks
+- Meta-cognitive tools (think, todo tracking)
+- HeadTailCompaction for context management
+- Hooks for planning and completion verification
 
-The agent follows this workflow:
-- Check memory for relevant patterns
-- Create a markdown-based plan in memory
-- Execute steps using coding tools
-- Log key decisions to memory
-- Complete with summary
+Two tasks are included:
+1. Code review: reviews a repository, produces findings
+2. Build task: creates a web application from scratch
+
+Run: python examples/agents/swe_agent/agent.py
+
+Prerequisites:
+    - pip install -e ".[all]"
+    - Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT
 """
 
 import asyncio
@@ -20,138 +24,85 @@ import os
 from pathlib import Path
 
 from picoagents import Agent
+from picoagents._hooks import LLMCompletionCheckHook, PlanningHook
+from picoagents.compaction import HeadTailCompaction
 from picoagents.llm import AzureOpenAIChatCompletionClient
 from picoagents.tools import (
     MemoryTool,
-    TaskStatusTool,
     ThinkTool,
+    TodoReadTool,
+    TodoWriteTool,
     create_coding_tools,
 )
 from picoagents.types import AgentResponse
 
-
-system_instructions  ="""
-You are an expert software engineering agent. Follow this systematic workflow:
+system_instructions = """
+You are an expert software engineering agent. Follow this workflow:
 
 ## PHASE 1: MEMORY CHECK (ALWAYS DO THIS FIRST)
-1. Use memory tool with command='view', path='/memories' to see directory structure
-2. Check for relevant patterns in /memories/patterns/
-3. Check previous decisions in /memories/decisions/
-4. Review any working notes from past sessions
+1. Use memory tool to view /memories directory
+2. Check for relevant patterns and previous decisions
+3. Apply any lessons from past tasks
 
-## PHASE 2: PLANNING (MEMORY-BASED)
-1. Use 'think' tool to analyze the task requirements
-2. Use memory tool with command='create' to create /memories/current_task.md with:
-   ```markdown
-   # Task: [Task Name]
-
-   ## Plan
-   - [ ] Step 1: Description
-   - [ ] Step 2: Description
-   - [ ] Step 3: Description
-
-   ## Notes
-   - Key decisions
-   - Important considerations
-   ```
-3. Break complex tasks into smaller, testable steps
-4. Use markdown checkboxes for task tracking
+## PHASE 2: PLANNING
+1. Use think tool to analyze requirements
+2. Use todo_write to create a structured task list
+3. Mark the first task as in_progress
 
 ## PHASE 3: EXECUTION
-1. Use memory tool with command='view', path='/memories/current_task.md' to see your plan
-2. For each unchecked task:
-   a. Use coding tools as needed:
-      - read_file: Read existing code
-      - write_file: Create/modify files (use str_replace for edits)
-      - list_directory: Explore project structure
-      - bash_execute: Run commands, tests
-      - python_repl: Test Python code snippets
-   b. Test your changes if applicable
-   c. Use memory tool with command='str_replace' to update the checkbox:
-      - old_str: "- [ ] Step N"
-      - new_str: "- [x] Step N"
-   d. Log key decisions using memory tool with command='append':
-      - path: '/memories/decisions/YYYY-MM-DD.md'
-      - append_text: "- [timestamp] Decision: description"
+For each task in your todo list:
+1. Use coding tools (read_file, write_file, bash_execute)
+2. Test changes immediately
+3. Use todo_write to mark completed, start next task
+4. Log important decisions to /memories/decisions/
 
-## PHASE 4: LEARNING & DOCUMENTATION
-1. Use memory tool with command='search' to check if similar patterns already exist
-2. If you discover a useful pattern or solution:
-   - Use memory tool with command='create' or 'append' to store it in /memories/patterns/
-   - Document: what the problem was, your solution, why it works
-3. Update /memories/current_task.md with completion status
+## PHASE 4: VERIFICATION
+1. Run tests to verify implementation
+2. Use todo_read to check all tasks are completed
+3. Verify code quality (documentation, error handling)
 
-## PHASE 5: TASK COMPLETION (CRITICAL - ALWAYS DO THIS)
-Before finishing, ALWAYS call task_status tool to formally evaluate completion:
-
-If ALL requirements are satisfied:
-  task_status(
-    status="complete",
-    rationale="Detailed explanation of how each requirement was met with evidence",
-    requirements_met=["List each requirement satisfied"]
-  )
-
-If unable to complete (blocked, need input, hit limits):
-  task_status(
-    status="incomplete",
-    rationale="Explain the blocker, what was tried, why stopping now",
-    requirements_pending=["List what remains"]
-  )
-
-Example complete rationale:
-"✓ Requirement 1 (4 functions): Created add, subtract, multiply, divide in calculator.py
- ✓ Requirement 2 (error handling): divide() raises ValueError for zero divisor
- ✓ Requirement 3 (tests): Created test_calculator.py with 12 tests, all passed
- ✓ Requirement 4 (documentation): Added comprehensive docstrings to all functions
-All requirements verified and complete."
-
-NEVER finish without calling task_status. This documents WHY you're stopping.
-
-## MEMORY ORGANIZATION
-- /memories/patterns/: Reusable solutions, code patterns, common bugs
-- /memories/decisions/: Why we chose specific approaches (dated logs)
-- /memories/current_task.md: Active task tracking (markdown with checkboxes)
-- /memories/project_context.md: High-level project understanding
-
-## BEST PRACTICES
-- ALWAYS check memory before starting a task
-- ALWAYS test code changes when possible
-- ALWAYS log important decisions
-- ALWAYS call task_status before finishing
-- Use 'think' tool for complex reasoning
-- Keep memory organized and searchable
-- Write clear, concise documentation
-- Use markdown checkboxes (- [ ] and - [x]) for task tracking
+## PHASE 5: COMPLETION
+Before finishing, verify ALL todos are marked complete.
+If blocked, explain what remains and why.
+NEVER stop with in_progress or pending tasks.
+NEVER ask "would you like me to continue?" — you are in
+autonomous task completion mode, not conversational mode.
 
 ## ERROR HANDLING
-- If a command fails, analyze the error and try alternative approaches
-- Log failures and solutions to help future tasks
-- Don't give up after first failure - iterate
-- If blocked after retries, call task_status with incomplete and explain
+- If a command fails, analyze the error and try alternatives
+- Log failures to memory to help future tasks
+- Don't give up after first failure — iterate
 
-Remember: Your memory persists across sessions. Build up knowledge!
+Remember: Your memory persists across sessions. Build knowledge!
 """
 
- # Get API credentials
+# Get API credentials
 api_key = os.getenv("AZURE_OPENAI_API_KEY")
 endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
 if not api_key or not endpoint:
-    print("Error: Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT")  
+    print("Error: Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT")
 
-# Set up workspace directories
+# Set up workspace and memory directories
 workspace = Path("./scratch/agent_workspace")
 workspace.mkdir(parents=True, exist_ok=True)
 
-# Set up memory directory
 memory_path = Path("./scratch/agent_memory")
 memory_path.mkdir(parents=True, exist_ok=True)
 
-def get_agent() -> Agent :
-    """Create the software engineering agent.""" 
-   
 
-    # Initialize model client
+def get_agent(
+    token_budget: int = 25_000,
+    max_restarts: int = 3,
+    max_iterations: int = 50,
+) -> Agent:
+    """Create the software engineering agent.
+
+    Args:
+        token_budget: HeadTailCompaction budget. Set to 0 to disable.
+        max_restarts: Max times the completion hook can resume the loop.
+        max_iterations: Max tool loop iterations.
+    """
     client = AzureOpenAIChatCompletionClient(
         model="gpt-4.1-mini",
         api_key=api_key,
@@ -159,122 +110,109 @@ def get_agent() -> Agent :
         api_version="2024-10-21",
     )
 
-    
-
-
-    # Initialize tools
     memory_tool = MemoryTool(base_path=memory_path)
 
-    # Create agent with comprehensive instructions
+    compaction = (
+        HeadTailCompaction(token_budget=token_budget, head_ratio=0.2)
+        if token_budget > 0
+        else None
+    )
+
     agent = Agent(
         name="software_engineer",
-        description="Expert software engineering agent that plans, codes, and learns from experience",
+        description=(
+            "Expert software engineering agent that plans, "
+            "codes, and learns from experience"
+        ),
         model_client=client,
         instructions=system_instructions,
         tools=[
             memory_tool,
             ThinkTool(),
-            TaskStatusTool(),
-            *create_coding_tools(workspace=workspace, bash_timeout=60),
+            TodoWriteTool(),
+            TodoReadTool(),
+            *create_coding_tools(
+                workspace=workspace, bash_timeout=60
+            ),
         ],
-        max_iterations=50,  # Allow longer execution for complex tasks
+        compaction=compaction,
+        start_hooks=[PlanningHook()],
+        end_hooks=[
+            LLMCompletionCheckHook(max_restarts=max_restarts)
+        ],
+        max_iterations=max_iterations,
     )
     return agent
 
-agent = get_agent()   
+
+async def run_task(agent: Agent, task: str, label: str):
+    """Run a task and print events."""
+    print("\n" + "=" * 70)
+    print(f"TASK: {label}")
+    print("=" * 70)
+    print(f"\n{task.strip()}\n")
+    print("Agent working...\n")
+
+    response = None
+    async for event in agent.run_stream(task):
+        print(event)
+        if isinstance(event, AgentResponse):
+            response = event
+
+    print(f"\n{'─' * 70}")
+    if response:
+        u = response.usage
+        print(f"LLM calls: {u.llm_calls}")
+        print(
+            f"Tokens: {u.tokens_input + u.tokens_output}"
+        )
+    return response
+
 
 async def main():
     """Run software engineering agent on sample tasks."""
 
-    print("=" * 70)
-    print("SOFTWARE ENGINEERING AGENT - Example Run")
-    print("=" * 70)
-    print()
+    agent = get_agent(token_budget=25_000)
 
-    # Task 1: Create a simple Python module
-    print("\n" + "=" * 70)
-    print("TASK 1: Create a Calculator Module")
-    print("=" * 70)
+    # Task 1: Code review (read-only, many files)
+    await run_task(
+        agent,
+        task="""
+Review the codebase in the workspace directory.
+Explore every directory and read every Python file.
+Produce a summary with:
+1. Overall architecture description
+2. Code quality issues found
+3. Recommendations for improvement
+Store your findings in /memories/reviews/.
+        """,
+        label="Code Review",
+    )
 
-    task1 = """
-Create a Python module called 'calculator.py' with the following functions:
-1. add(a, b) - returns sum
-2. subtract(a, b) - returns difference
-3. multiply(a, b) - returns product
-4. divide(a, b) - returns quotient (handle division by zero)
+    # Task 2: Build a web application
+    await run_task(
+        agent,
+        task="""
+Create a simple task tracker web application with:
+1. A FastAPI backend with endpoints for creating,
+   listing, and completing tasks (store in memory)
+2. A single-page HTML frontend using Tailwind CSS
+   (serve from FastAPI static files)
+3. A README.md explaining how to run the app
 
-Also create a test file 'test_calculator.py' with basic tests for each function.
-Run the tests to ensure everything works.
-"""
+Check memory for any patterns from previous tasks.
+Run the app briefly to verify it starts without errors.
+        """,
+        label="Build Task Tracker App",
+    )
 
-    print("\nTask:", task1.strip())
-    print("\nAgent working...\n")
- 
-    async for event in agent.run_stream(task1):
-        print(event)
-
-    print("\n" + "-" * 70)
-    print("TASK 1 COMPLETE") 
-    
-    # Task 2: Enhance the module (tests agent's memory)
-    print("\n" + "=" * 70)
-    print("TASK 2: Add Power Function and Update Tests")
-    print("=" * 70)
-
-    task2 = """
-Add a 'power(base, exponent)' function to the calculator module.
-Update the test file to include tests for the power function.
-Run all tests to ensure everything still works.
-
-Note: Check if there are any patterns or decisions from the previous task that might help.
-"""
-
-    print("\nTask:", task2.strip())
-    print("\nAgent working...\n")
- 
-    context = None
-    async for event in agent.run_stream(task2):
-        print(event)
-        if isinstance(event, AgentResponse):
-            context = event.context
-
-    print("\n" + "-" * 70)
-    print("TASK 2 COMPLETE")
-    
-
-    # Task 3: Code review and documentation
-    print("\n" + "=" * 70)
-    print("TASK 3: Add Docstrings and README")
-    print("=" * 70)
-
-    task3 = """
-Review the calculator module and:
-1. Add comprehensive docstrings to all functions
-2. Create a README.md file explaining how to use the module
-3. Include examples in the README
-
-Check your memory for any documentation patterns or conventions.
-"""
-
-    print("\nTask:", task3.strip())
-    print("\nAgent working...\n")
-
-    async for event in agent.run_stream(task3, context=context):
-        print(event)
-        if isinstance(event, AgentResponse):
-            context = event.context
-     
-
-    print("\n" + "-" * 70)
-    print("TASK 3 COMPLETE") 
-    print("-" * 70)
-
-    # Summary
+    # Print summary
     print("\n" + "=" * 70)
     print("ALL TASKS COMPLETE")
     print("=" * 70)
     print(f"\nWorkspace: {workspace.absolute()}")
-    print(f"Agent Memory: {memory_path.absolute()}")
+    print(f"Memory: {memory_path.absolute()}")
+
     print("\nGenerated files:")
     for file in workspace.rglob("*"):
         if file.is_file():
@@ -284,9 +222,6 @@ Check your memory for any documentation patterns or conventions.
     for file in memory_path.rglob("*"):
         if file.is_file():
             print(f"  - {file.relative_to(memory_path)}")
-
-    print("\nThe agent has built up memory that will persist for future runs!")
-    print("Try running the script again with a different task to see memory in action.")
 
 
 if __name__ == "__main__":
