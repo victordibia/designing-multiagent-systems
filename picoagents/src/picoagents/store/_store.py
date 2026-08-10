@@ -34,6 +34,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Union,
 )
 
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -145,6 +146,7 @@ class PicoStore:
 
         Returns the run_id.
         """
+        await self._ensure_initialized()  # creates runs_dir before we write into it
         db_run = agent_response_to_db_run(agent, response, trace_id, tags)
         run_id = db_run.id  # capture before session expiry
 
@@ -181,6 +183,7 @@ class PicoStore:
         tags: Optional[List[str]] = None,
     ) -> str:
         """Persist an orchestrator run: write JSON file + insert DB row."""
+        await self._ensure_initialized()  # creates runs_dir before we write into it
         db_run = orchestration_response_to_db_run(
             orchestrator, response, trace_id, tags
         )
@@ -587,13 +590,17 @@ class PicoStore:
     async def save_eval_run_from_results(
         self,
         results: EvalResults,
-        file_path: Optional[str] = None,
+        file_path: Optional[Union[str, Path]] = None,
     ) -> str:
         """Persist eval results: insert eval_run + eval_results rows.
 
         Called by EvalRunner.run(persist=True) after results.save().
         """
-        db_eval_run, db_results = eval_results_to_db(results, file_path)
+        # The column is a string; coerce so a Path from a caller cannot
+        # blow up the INSERT (it silently lost every eval run before).
+        db_eval_run, db_results = eval_results_to_db(
+            results, str(file_path) if file_path is not None else None
+        )
         eval_run_id = db_eval_run.id  # capture before session expiry
         result_count = len(db_results)
 

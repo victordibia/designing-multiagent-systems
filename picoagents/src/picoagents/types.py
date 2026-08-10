@@ -6,6 +6,7 @@ for type safety and data validation.
 """
 
 from datetime import datetime
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import BaseModel, Field
@@ -631,3 +632,38 @@ from .messages import AssistantMessage
 ChatCompletionResult.model_rebuild()
 AgentResponse.model_rebuild()
 AssistantMessage.model_rebuild()  # Rebuild to resolve Usage forward reference
+
+
+# ---------------------------------------------------------------------------
+# Deprecated aliases (0.4.0 -> 0.5.0 eval consolidation)
+# ---------------------------------------------------------------------------
+
+_RENAMED_IN_0_5_0 = {
+    "EvalTask": ("Task", "Task"),
+    "EvalTrajectory": ("RunTrajectory", "RunTrajectory"),
+}
+
+_REMOVED_IN_0_5_0 = {
+    # EvalResult bundled task + trajectory + score; the runner now returns
+    # picoagents.eval.TaskResult, which carries the same information.
+    "EvalResult": "picoagents.eval.TaskResult",
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Map 0.4.0 eval type names to their 0.5.0 replacements (PEP 562)."""
+    if name in _RENAMED_IN_0_5_0:
+        new_name, attr = _RENAMED_IN_0_5_0[name]
+        warnings.warn(
+            f"picoagents.types.{name} was renamed to {new_name} in 0.5.0; "
+            f"import {new_name} instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return globals()[attr]
+    if name in _REMOVED_IN_0_5_0:
+        raise AttributeError(
+            f"picoagents.types.{name} was removed in 0.5.0. "
+            f"Use {_REMOVED_IN_0_5_0[name]} instead."
+        )
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

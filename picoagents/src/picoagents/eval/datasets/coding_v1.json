@@ -1,0 +1,87 @@
+{
+  "name": "coding_v1",
+  "version": "1.0.0",
+  "description": "Multi-step coding tasks that produce long conversations. Used to measure whether compaction helps or hurts task completion when the message history exceeds the token budget.",
+  "default_eval_criteria": ["task_completion", "accuracy", "efficiency"],
+  "categories": ["coding", "analysis", "documentation"],
+  "metadata": {
+    "repo": "https://github.com/microsoft-foundry/ai-tutorials"
+  },
+  "tasks": [
+    {
+      "id": "repo_documentation",
+      "name": "Repository Documentation",
+      "input": "Clone the repository https://github.com/microsoft-foundry/ai-tutorials and generate comprehensive documentation.\n\nSTEP 1: Clone the repository\n- Use bash to clone: git clone https://github.com/microsoft-foundry/ai-tutorials\n- Confirm the clone succeeded by listing the directory contents\n\nSTEP 2: Explore the structure\n- List all files and directories recursively\n- Identify the main components, tutorials, and examples\n\nSTEP 3: Generate documentation\nFor EVERY file in the repository:\n1. Read the complete file\n2. Document its purpose (1-2 sentences)\n3. List key functions/classes if code, or sections if markdown\n4. Note dependencies or prerequisites\n\nSTEP 4: Create a comprehensive report\n- Overall repository purpose and structure\n- Table of contents of all tutorials/examples\n- Prerequisites for running each tutorial\n- Suggested learning path for beginners\n\nBe thorough. Read every file completely. Document everything.",
+      "category": "documentation",
+      "eval_criteria": ["completeness", "accuracy", "clarity"],
+      "rubric": {
+        "completeness": "10: All files read and documented. 5: Most files covered. 0: Major gaps.",
+        "accuracy": "10: All descriptions are technically correct. 5: Minor errors. 0: Significant errors.",
+        "clarity": "10: Well-organized report with useful overview. 5: Understandable but disorganized. 0: Confusing."
+      },
+      "expected_iterations": 20,
+      "min_files_to_read": 10,
+      "target_context_tokens": 50000
+    },
+    {
+      "id": "code_review",
+      "name": "Code Review",
+      "input": "Clone https://github.com/microsoft-foundry/ai-tutorials and perform an exhaustive code review.\n\nSTEP 1: Clone the repository\n- git clone https://github.com/microsoft-foundry/ai-tutorials\n- Verify the clone succeeded\n\nSTEP 2: Inventory all code files\n- Find all Python files (.py)\n- Find all Jupyter notebooks (.ipynb)\n- Find all configuration files\n\nSTEP 3: Review each code file\nFor EVERY Python file and notebook:\n1. Read the complete file\n2. For each function/method, document:\n   - Name and signature\n   - What it does (1-2 sentences)\n   - Any potential issues (edge cases, missing error handling)\n3. For each class, document:\n   - Purpose\n   - All methods with their purposes\n\nSTEP 4: Synthesize findings\n- Summary table of all modules and their relationships\n- Top 10 code quality issues found\n- Recommendations for improvement\n- Best practices observed worth replicating\n\nRead every file. Be thorough and systematic.",
+      "category": "coding",
+      "eval_criteria": ["completeness", "accuracy", "thoroughness"],
+      "rubric": {
+        "completeness": "10: All code files reviewed. 5: Most files covered. 0: Few files reviewed.",
+        "accuracy": "10: All findings are technically correct. 5: Minor inaccuracies. 0: Major errors.",
+        "thoroughness": "10: Detailed analysis with specific code references. 5: Surface-level analysis. 0: Minimal effort."
+      },
+      "expected_iterations": 22,
+      "min_files_to_read": 10,
+      "target_context_tokens": 55000
+    },
+    {
+      "id": "bug_fix",
+      "name": "Bug Fix",
+      "input": "Clone https://github.com/microsoft-foundry/ai-tutorials and find and fix bugs.\n\nSTEP 1: Clone the repository\n- git clone https://github.com/microsoft-foundry/ai-tutorials\n- Verify the clone succeeded\n\nSTEP 2: Read all Python files\n- Find every .py file in the repository\n- Read each one completely\n\nSTEP 3: Identify bugs\nFor each file, look for:\n- Incorrect logic or off-by-one errors\n- Missing error handling that would cause crashes\n- Unclosed resources (files, connections)\n- Type mismatches or incorrect API usage\n- Race conditions or concurrency issues\n- Hardcoded values that should be configurable\n\nSTEP 4: Fix each bug\nFor EVERY bug found:\n1. Describe the bug and which file/line it's in\n2. Explain why it's a bug (what breaks)\n3. Write the corrected code\n4. Explain why the fix works\n\nSTEP 5: Create a summary\n- Total bugs found, categorized by severity (critical/high/medium/low)\n- Files with the most issues\n- Patterns across bugs (e.g., recurring error handling gaps)\n\nBe systematic. Read every file. Fix every bug you find.",
+      "category": "coding",
+      "eval_criteria": ["completeness", "accuracy", "thoroughness"],
+      "rubric": {
+        "completeness": "10: All files examined, all bugs found and fixed. 5: Most files examined. 0: Incomplete.",
+        "accuracy": "10: All identified bugs are real and fixes are correct. 5: Some false positives or partial fixes. 0: Major errors.",
+        "thoroughness": "10: Each bug has clear description, root cause, and tested fix. 5: Bugs listed but not fully analyzed. 0: Superficial."
+      },
+      "expected_iterations": 20,
+      "min_files_to_read": 10,
+      "target_context_tokens": 50000
+    },
+    {
+      "id": "add_feature",
+      "name": "Add Feature",
+      "input": "Clone https://github.com/microsoft-foundry/ai-tutorials and add a new feature: a CLI tool that runs any tutorial from the command line.\n\nSTEP 1: Clone the repository\n- git clone https://github.com/microsoft-foundry/ai-tutorials\n- Verify the clone succeeded\n\nSTEP 2: Understand the codebase\n- Read all Python files to understand the structure\n- Identify how tutorials are organized\n- Note dependencies and entry points\n\nSTEP 3: Design the CLI tool\n- It should list all available tutorials\n- It should run a selected tutorial by name\n- It should show tutorial prerequisites before running\n- It should handle errors gracefully (missing dependencies, etc.)\n\nSTEP 4: Implement the CLI\n- Write a cli.py file with argparse or click\n- Add a `list` subcommand that shows available tutorials\n- Add a `run <name>` subcommand that executes a tutorial\n- Add a `info <name>` subcommand that shows tutorial details\n- Include proper error messages and help text\n\nSTEP 5: Write the code\n- Output the complete cli.py file\n- Show example usage for each subcommand\n- Document any changes needed to existing files\n\nRead every file first to understand the full codebase before writing code.",
+      "category": "coding",
+      "eval_criteria": ["completeness", "accuracy", "thoroughness"],
+      "rubric": {
+        "completeness": "10: All subcommands implemented with error handling. 5: Partial implementation. 0: Incomplete.",
+        "accuracy": "10: Code is correct and would run without errors. 5: Minor issues. 0: Would not work.",
+        "thoroughness": "10: Full codebase read first, design considered, edge cases handled. 5: Some shortcuts. 0: Rushed."
+      },
+      "expected_iterations": 22,
+      "min_files_to_read": 10,
+      "target_context_tokens": 55000
+    },
+    {
+      "id": "refactor",
+      "name": "Refactor",
+      "input": "Clone https://github.com/microsoft-foundry/ai-tutorials and refactor the codebase for better organization.\n\nSTEP 1: Clone the repository\n- git clone https://github.com/microsoft-foundry/ai-tutorials\n- Verify the clone succeeded\n\nSTEP 2: Analyze current structure\n- Read ALL Python files\n- Map out imports and dependencies between files\n- Identify code duplication\n- Note naming inconsistencies\n\nSTEP 3: Plan refactoring\nIdentify and plan fixes for:\n- Duplicated code that should be extracted to shared utilities\n- Inconsistent naming conventions (functions, variables, files)\n- Missing or inconsistent type hints\n- Import organization issues\n- Files that are too large and should be split\n\nSTEP 4: Execute refactoring\nFor EACH change:\n1. State what you're changing and why\n2. Show the before and after code\n3. List all files affected by this change\n4. Verify the change doesn't break imports or functionality\n\nSTEP 5: Summarize\n- List all refactoring changes made\n- Lines of code removed through deduplication\n- Improved patterns introduced\n- Any remaining technical debt\n\nRead every file before making changes. Track what you've already modified.",
+      "category": "coding",
+      "eval_criteria": ["completeness", "accuracy", "thoroughness"],
+      "rubric": {
+        "completeness": "10: All files analyzed, all refactoring opportunities found. 5: Most covered. 0: Incomplete.",
+        "accuracy": "10: All refactoring changes are correct and don't break anything. 5: Minor issues. 0: Would break code.",
+        "thoroughness": "10: Each change has clear before/after with rationale. 5: Some changes lack context. 0: Superficial."
+      },
+      "expected_iterations": 22,
+      "min_files_to_read": 10,
+      "target_context_tokens": 55000
+    }
+  ]
+}

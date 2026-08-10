@@ -38,6 +38,7 @@ class BaseAgent(ComponentBase[BaseModel], ABC):
     def __init__(
         self,
         name: str,
+        *,
         instructions: str,
         model_client: BaseChatCompletionClient,
         description: str = "",

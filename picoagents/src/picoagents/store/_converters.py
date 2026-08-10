@@ -133,7 +133,7 @@ def dataset_to_db(
     db_tasks = []
     for task in dataset.tasks:
         db_task = DBTask(
-            id=task.id or _short_uuid(),
+            task_key=task.id,
             dataset_id=db_dataset.id,
             name=task.name,
             input=task.input,
@@ -157,7 +157,7 @@ def db_to_dataset(
 
     tasks = [
         Task(
-            id=t.id,
+            id=t.task_key or t.id,
             name=t.name,
             input=t.input,
             expected_output=t.expected_output,

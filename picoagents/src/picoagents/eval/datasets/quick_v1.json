@@ -1,0 +1,74 @@
+{
+  "name": "quick_v1",
+  "version": "1.0.0",
+  "description": "Quick evaluation tasks with strict rubrics. Designed so a default agent scores high on quality but mid/low on specific format and content constraints.",
+  "default_eval_criteria": ["quality", "format_compliance", "content_accuracy"],
+  "categories": ["creative", "reasoning", "knowledge"],
+  "tasks": [
+    {
+      "id": "african_river_haiku",
+      "name": "African River Haiku",
+      "input": "Write a poem about a river in Africa.",
+      "category": "creative",
+      "eval_criteria": ["poetic_quality", "haiku_format", "african_river", "mentions_africa"],
+      "rubric": {
+        "poetic_quality": "10: Beautiful imagery, strong word choice, evocative. 5: Competent but unremarkable. 0: Flat or incoherent.",
+        "haiku_format": "10: Exactly 3 lines with 5-7-5 syllable pattern. 5: 3 lines but wrong syllable count. 0: Not a haiku at all.",
+        "african_river": "10: Names a real African river (Nile, Congo, Zambezi, Niger, etc.). 5: References a river but not by name. 0: No river mentioned or wrong continent.",
+        "mentions_africa": "10: Explicitly mentions Africa or an African country/region. 5: Implies Africa through context clues. 0: No reference to Africa."
+      }
+    },
+    {
+      "id": "euler_limerick",
+      "name": "Euler's Number Limerick",
+      "input": "Explain what Euler's number (e) is used for in mathematics.",
+      "category": "knowledge",
+      "eval_criteria": ["mathematical_accuracy", "limerick_format", "includes_value", "real_world_example"],
+      "rubric": {
+        "mathematical_accuracy": "10: Correctly explains e in context of exponential growth, calculus, compound interest. 5: Partially correct. 0: Wrong or confused with Euler's constant gamma.",
+        "limerick_format": "10: Response is a limerick (AABBA rhyme scheme, 5 lines). 5: Attempted verse but wrong structure. 0: Prose only, no verse.",
+        "includes_value": "10: States e is approximately 2.71828. 5: Says 'approximately 2.7' or rounds. 0: No numerical value given.",
+        "real_world_example": "10: Gives a concrete real-world application (population growth, radioactive decay, compound interest). 5: Abstract example only. 0: No example."
+      }
+    },
+    {
+      "id": "sorting_haiku",
+      "name": "Sorting Algorithm Haiku",
+      "input": "Describe how bubble sort works.",
+      "category": "reasoning",
+      "eval_criteria": ["technical_accuracy", "haiku_format", "mentions_complexity", "uses_analogy"],
+      "rubric": {
+        "technical_accuracy": "10: Correctly describes pairwise comparison and swapping, multiple passes. 5: Gets the gist but misses details. 0: Wrong algorithm described.",
+        "haiku_format": "10: Exactly 3 lines with 5-7-5 syllable pattern. 5: 3 lines but wrong syllable count. 0: Not a haiku.",
+        "mentions_complexity": "10: States O(n^2) time complexity. 5: Says 'slow' or 'inefficient' without Big-O. 0: No mention of performance.",
+        "uses_analogy": "10: Uses a clear physical analogy (bubbles rising, sorting cards, etc.). 5: Weak or unclear analogy. 0: No analogy, purely abstract."
+      }
+    },
+    {
+      "id": "capital_acrostic",
+      "name": "World Capitals Acrostic",
+      "input": "Name the capitals of Japan, France, and Brazil.",
+      "category": "knowledge",
+      "eval_criteria": ["factual_accuracy", "acrostic_format", "all_three_included", "extra_context"],
+      "rubric": {
+        "factual_accuracy": "10: All three correct (Tokyo, Paris, Brasilia). 5: Two correct. 0: One or fewer correct.",
+        "acrostic_format": "10: Response is an acrostic poem where first letters spell something relevant. 5: Attempted creative format but not acrostic. 0: Plain list or prose.",
+        "all_three_included": "10: All three capitals appear in the response. 5: Two appear. 0: One or fewer.",
+        "extra_context": "10: Includes a fact about each capital (population, landmark, history). 5: Extra fact for some. 0: Names only, no context."
+      }
+    },
+    {
+      "id": "photosynthesis_tweet",
+      "name": "Photosynthesis Tweet",
+      "input": "Explain photosynthesis.",
+      "category": "knowledge",
+      "eval_criteria": ["scientific_accuracy", "tweet_length", "chemical_equation", "everyday_language"],
+      "rubric": {
+        "scientific_accuracy": "10: Correctly describes light-dependent and light-independent reactions, mentions chlorophyll. 5: Gets the basics (sunlight + CO2 + water -> glucose + O2). 0: Fundamentally wrong.",
+        "tweet_length": "10: Response is 280 characters or fewer (Twitter/X limit). 5: Under 560 characters. 0: Over 560 characters.",
+        "chemical_equation": "10: Includes balanced equation 6CO2 + 6H2O -> C6H12O6 + 6O2. 5: Unbalanced or partial equation. 0: No equation.",
+        "everyday_language": "10: Uses simple analogies a child could understand (plant food, sun cooking, etc.). 5: Mix of technical and simple. 0: Dense jargon only."
+      }
+    }
+  ]
+}

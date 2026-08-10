@@ -1,0 +1,911 @@
+{
+  "name": "support",
+  "version": "2.2.0",
+  "description": "Customer-support agent tasks for measuring agent optimization, designed to mirror a real e-commerce help desk rather than a toy benchmark. Tasks follow real contact-driver categories (order status, returns/refunds, warranty, account security, billing math, escalations), and every house rule is one real support organizations have: ticket reference formats, a 30-day return window, escalation policy for safety/legal/fraud, prorated billing. Rules live only in the rubric (the SME-curated policy doc), mirroring the real deployment gap optimization must close. TRAIN/TEST SPLIT (task.metadata.split): test tasks reuse the same rule families with new customer contacts - like optimizing on last month's tickets and deploying on next month's - so scoring the optimized agent on test measures whether it learned the policy or memorized the tickets. Paired tasks (decline-vs-approve, escalate-vs-handle) block degenerate policies; a routine regression task checks optimization does not break normal traffic. Where a rule is objectively checkable (formats, arithmetic) task.metadata.deterministic gives a regex for zero-variance scoring; model judging is reserved for genuinely subjective criteria (tone), as in real support QA.",
+  "categories": [
+    "format",
+    "policy",
+    "escalation",
+    "calculation",
+    "tone"
+  ],
+  "default_eval_criteria": [
+    "quality"
+  ],
+  "tasks": [
+    {
+      "id": "ticket_missing_order",
+      "name": "ticket_missing_order",
+      "input": "I never received my order #44120 and it has been two weeks. Can you help?",
+      "category": "format",
+      "eval_criteria": [
+        "ticket_reference"
+      ],
+      "rubric": {
+        "ticket_reference": "House rule: every support reply must include a ticket reference in the exact format TKT-###### (literal prefix TKT- then six digits). Score 10 if present and correctly formatted, else 0."
+      },
+      "expected_output": "A helpful reply including a reference like TKT-204418.",
+      "metadata": {
+        "lever": "instructions",
+        "split": "train",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "ticket_login_issue",
+      "name": "ticket_login_issue",
+      "input": "I can't log into my account - it says my password is wrong but I'm sure it's right.",
+      "category": "format",
+      "eval_criteria": [
+        "ticket_reference"
+      ],
+      "rubric": {
+        "ticket_reference": "House rule: the reply must include a ticket reference formatted exactly as TKT-###### (six digits). Score 10 if present and correctly formatted, else 0."
+      },
+      "expected_output": "Account-help reply including a TKT-###### reference.",
+      "metadata": {
+        "lever": "instructions",
+        "split": "train",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "warranty_replacement_ticket",
+      "name": "warranty_replacement_ticket",
+      "input": "My $90 headphones stopped working after two weeks of normal use. I'd like a replacement.",
+      "category": "format",
+      "eval_criteria": [
+        "policy_compliance",
+        "ticket_reference"
+      ],
+      "rubric": {
+        "policy_compliance": "A defect within warranty (normal use, well under 30 days) should be approved for replacement/repair. Score 10 if it approves a replacement or repair, else 0.",
+        "ticket_reference": "The reply must include a reference formatted exactly as TKT-###### (six digits). Score 10 if present and correct, else 0."
+      },
+      "expected_output": "Approve a warranty replacement and include TKT-######.",
+      "metadata": {
+        "lever": "instructions_and_policy",
+        "split": "train",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "refund_past_window",
+      "name": "refund_past_window",
+      "input": "I bought a blender 45 days ago. It works fine, I just changed my mind. I want a full refund.",
+      "category": "policy",
+      "eval_criteria": [
+        "policy_compliance"
+      ],
+      "rubric": {
+        "policy_compliance": "House policy: change-of-mind refunds are allowed ONLY within 30 days. This order is 45 days old. The reply MUST clearly decline the full refund and state it is outside the 30-day window. Score 10 ONLY if it clearly declines; score 0 if it grants the refund, hedges, says it 'may be possible', or defers to another team."
+      },
+      "expected_output": "Clear decline citing the 30-day window; optional store credit.",
+      "metadata": {
+        "lever": "policy",
+        "split": "train"
+      }
+    },
+    {
+      "id": "refund_within_window",
+      "name": "refund_within_window",
+      "input": "I'd like to return a jacket I bought 10 days ago. It is unused with the tags still on.",
+      "category": "policy",
+      "eval_criteria": [
+        "policy_compliance"
+      ],
+      "rubric": {
+        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items. This is 10 days old and unused, so it MUST be approved. Score 10 if it clearly approves the refund, else 0."
+      },
+      "expected_output": "Approve the refund and explain next steps.",
+      "metadata": {
+        "lever": "policy",
+        "split": "train"
+      }
+    },
+    {
+      "id": "refund_defective_approve",
+      "name": "refund_defective_approve",
+      "input": "The coffee maker I bought 6 days ago arrived cracked and leaks everywhere. I want my money back.",
+      "category": "policy",
+      "eval_criteria": [
+        "policy_compliance"
+      ],
+      "rubric": {
+        "policy_compliance": "A defective item reported within the return window must be refunded (or replaced). Score 10 if it clearly approves a refund or replacement, else 0."
+      },
+      "expected_output": "Approve a refund/replacement for the defective item.",
+      "metadata": {
+        "lever": "policy",
+        "split": "train"
+      }
+    },
+    {
+      "id": "escalate_safety_legal",
+      "name": "escalate_safety_legal",
+      "input": "I am an attorney. Your defective $1,200 espresso machine overheated and started a small fire in my kitchen. I expect compensation.",
+      "category": "escalation",
+      "eval_criteria": [
+        "escalation"
+      ],
+      "rubric": {
+        "escalation": "Safety incident + legal threat + high value. The reply MUST hand off to a human safety/claims specialist and MUST NOT do any of: admit fault, quote refund policy, promise or discuss compensation, or propose its own resolution steps. Score 10 ONLY if it escalates to a human and avoids all of those; score 0 if it does any of them."
+      },
+      "expected_output": "Express concern, do not admit fault, escalate to a human specialist.",
+      "metadata": {
+        "lever": "escalation",
+        "split": "train"
+      }
+    },
+    {
+      "id": "escalate_account_fraud",
+      "name": "escalate_account_fraud",
+      "input": "I think my account was hacked - there are three orders I never placed and my saved card was used.",
+      "category": "escalation",
+      "eval_criteria": [
+        "escalation"
+      ],
+      "rubric": {
+        "escalation": "Suspected fraud/account compromise. The reply MUST escalate to the security/fraud team and MUST NOT attempt to process refunds or resolve the disputed charges itself. Score 10 ONLY if it escalates to security/fraud without resolving the charges itself; score 0 otherwise."
+      },
+      "expected_output": "Escalate to the security/fraud team; do not resolve charges directly.",
+      "metadata": {
+        "lever": "escalation",
+        "split": "train"
+      }
+    },
+    {
+      "id": "handle_address_change",
+      "name": "handle_address_change",
+      "input": "Can I change the shipping address on order #55001? It hasn't shipped yet.",
+      "category": "escalation",
+      "eval_criteria": [
+        "resolution"
+      ],
+      "rubric": {
+        "resolution": "Routine pre-shipment request, NOT an escalation. The reply should handle it directly (confirm the address can be updated before shipment and ask for the new address). Score 10 if handled directly; score 0 if it unnecessarily escalates to a human or refuses."
+      },
+      "expected_output": "Confirm the address can be changed pre-shipment; request the new address.",
+      "metadata": {
+        "lever": "escalation",
+        "split": "train"
+      }
+    },
+    {
+      "id": "prorated_refund_math",
+      "name": "prorated_refund_math",
+      "input": "I'm cancelling my annual Pro plan, which costs $237.40 per year, after exactly 173 days of use (assume a 365-day year). What is my prorated refund for the unused days, to the cent?",
+      "category": "calculation",
+      "eval_criteria": [
+        "calculation_accuracy"
+      ],
+      "rubric": {
+        "calculation_accuracy": "Unused = 365 - 173 = 192 days: refund = 237.40 * 192 / 365 = 124.88 (to the cent). Score 10 only if the stated refund is $124.88 (accept $124.87-$124.89), else 0."
+      },
+      "expected_output": "$124.88",
+      "metadata": {
+        "lever": "tool_calculator",
+        "split": "train",
+        "deterministic": {
+          "criterion": "calculation_accuracy",
+          "pattern": "124\\.8[7-9]"
+        }
+      }
+    },
+    {
+      "id": "bulk_discount_math",
+      "name": "bulk_discount_math",
+      "input": "I'm ordering 12 units at $18.50 each with a 15% bulk discount applied to the subtotal. What is the final total, to the cent?",
+      "category": "calculation",
+      "eval_criteria": [
+        "calculation_accuracy"
+      ],
+      "rubric": {
+        "calculation_accuracy": "Subtotal = 12 * 18.50 = 222.00; after 15% off = 222.00 * 0.85 = 188.70. Score 10 only if the stated total is $188.70 (accept $188.69-$188.71), else 0."
+      },
+      "expected_output": "$188.70",
+      "metadata": {
+        "lever": "tool_calculator",
+        "split": "train",
+        "deterministic": {
+          "criterion": "calculation_accuracy",
+          "pattern": "188\\.(69|70|71)"
+        }
+      }
+    },
+    {
+      "id": "shipping_status_tone",
+      "name": "shipping_status_tone",
+      "input": "Has my order shipped yet?? Order #88812. I've been waiting and I'm frustrated.",
+      "category": "tone",
+      "eval_criteria": [
+        "conciseness",
+        "tone"
+      ],
+      "rubric": {
+        "conciseness": "A good reply is brief and direct, roughly three sentences or fewer. Score 10 if concise, lower the more it rambles or pads.",
+        "tone": "The customer is frustrated. The reply should be empathetic and courteous, acknowledging the frustration. Score 10 if warm and professional, lower if curt or robotic."
+      },
+      "expected_output": "A short, empathetic acknowledgement plus a clear status next step.",
+      "metadata": {
+        "lever": "instructions",
+        "split": "train"
+      }
+    },
+    {
+      "id": "return_window_concise",
+      "name": "return_window_concise",
+      "input": "Quick question - how long do I have to return an item?",
+      "category": "tone",
+      "eval_criteria": [
+        "conciseness",
+        "content_accuracy"
+      ],
+      "rubric": {
+        "conciseness": "This is a simple factual question. A good reply is one or two sentences. Score 10 if concise and direct, lower if padded with unnecessary detail.",
+        "content_accuracy": "The return window is 30 days for change-of-mind on unused items. Score 10 if it states a 30-day window, else lower."
+      },
+      "expected_output": "You have 30 days to return unused items for a change-of-mind refund.",
+      "metadata": {
+        "lever": "instructions",
+        "split": "train"
+      }
+    },
+    {
+      "id": "test_ticket_damaged_item",
+      "name": "test_ticket_damaged_item",
+      "category": "format",
+      "input": "My ceramic mug set arrived shattered in the box. What should I do?",
+      "eval_criteria": [
+        "ticket_reference"
+      ],
+      "rubric": {
+        "ticket_reference": "House rule: every support reply must include a ticket reference in the exact format TKT-###### (literal prefix TKT- then six digits). Score 10 if present and correctly formatted, else 0."
+      },
+      "expected_output": "Helpful reply including a TKT-###### reference.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "ticket_format",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "test_ticket_wrong_item",
+      "name": "test_ticket_wrong_item",
+      "category": "format",
+      "input": "I ordered the blue backpack but received a green one. Order #77210.",
+      "eval_criteria": [
+        "ticket_reference"
+      ],
+      "rubric": {
+        "ticket_reference": "House rule: every support reply must include a ticket reference in the exact format TKT-###### (literal prefix TKT- then six digits). Score 10 if present and correctly formatted, else 0."
+      },
+      "expected_output": "Helpful reply including a TKT-###### reference.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "ticket_format",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "test_refund_past_window",
+      "name": "test_refund_past_window",
+      "category": "policy",
+      "input": "I bought a gaming headset 60 days ago. Nothing wrong with it, I just do not use it. I want a full refund.",
+      "eval_criteria": [
+        "policy_compliance"
+      ],
+      "rubric": {
+        "policy_compliance": "House policy: change-of-mind refunds are allowed ONLY within 30 days. This order is 60 days old. The reply MUST clearly decline the full refund and cite the 30-day window. Score 10 ONLY if it clearly declines; 0 if it grants, hedges, or defers."
+      },
+      "expected_output": "Clear decline citing the 30-day window.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "refund_policy"
+      }
+    },
+    {
+      "id": "test_refund_within_window",
+      "name": "test_refund_within_window",
+      "category": "policy",
+      "input": "I want to return a desk lamp I bought 5 days ago. Still in the box, never opened.",
+      "eval_criteria": [
+        "policy_compliance"
+      ],
+      "rubric": {
+        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items. 5 days, unopened: MUST be approved. Score 10 if it clearly approves, else 0."
+      },
+      "expected_output": "Approve the refund and explain next steps.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "refund_policy"
+      }
+    },
+    {
+      "id": "test_escalate_injury",
+      "name": "test_escalate_injury",
+      "category": "escalation",
+      "input": "The blender you sold me shattered while running and a piece of plastic cut my hand. I am considering my legal options.",
+      "eval_criteria": [
+        "escalation"
+      ],
+      "rubric": {
+        "escalation": "Injury + potential legal action. The reply MUST hand off to a human safety/claims specialist and MUST NOT admit fault, quote refund policy, promise compensation, or propose its own resolution. Score 10 ONLY if it escalates and avoids all of those; else 0."
+      },
+      "expected_output": "Express concern, no fault admission, escalate to human specialist.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "escalation"
+      }
+    },
+    {
+      "id": "test_handle_cancel_order",
+      "name": "test_handle_cancel_order",
+      "category": "escalation",
+      "input": "Can you cancel order #91002? It has not shipped yet.",
+      "eval_criteria": [
+        "resolution"
+      ],
+      "rubric": {
+        "resolution": "Routine pre-shipment cancellation, NOT an escalation. Score 10 if handled directly (confirm cancellation before shipment); 0 if it unnecessarily escalates or refuses."
+      },
+      "expected_output": "Confirm the order can be cancelled pre-shipment.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "escalation"
+      }
+    },
+    {
+      "id": "test_prorated_math",
+      "name": "test_prorated_math",
+      "category": "calculation",
+      "input": "I am cancelling my annual Plus plan, which costs $412.60 per year, after exactly 240 days of use (assume a 365-day year). What is my prorated refund for the unused days, to the cent?",
+      "eval_criteria": [
+        "calculation_accuracy"
+      ],
+      "rubric": {
+        "calculation_accuracy": "Unused = 365 - 240 = 125 days: refund = 412.60 * 125 / 365 = 141.30 (to the cent). Score 10 only if the stated refund is $141.30 (accept 141.29-141.31), else 0."
+      },
+      "expected_output": "$141.30",
+      "metadata": {
+        "split": "test",
+        "rule_family": "calculation",
+        "deterministic": {
+          "criterion": "calculation_accuracy",
+          "pattern": "141\\.(29|30|31)"
+        }
+      }
+    },
+    {
+      "id": "test_bulk_discount_math",
+      "name": "test_bulk_discount_math",
+      "category": "calculation",
+      "input": "I am ordering 7 units at $23.80 each with a 10% bulk discount applied to the subtotal. What is the final total, to the cent?",
+      "eval_criteria": [
+        "calculation_accuracy"
+      ],
+      "rubric": {
+        "calculation_accuracy": "Subtotal = 7 * 23.80 = 166.60; after 10% off = 149.94. Score 10 only if the stated total is $149.94 (accept 149.93-149.95), else 0."
+      },
+      "expected_output": "$149.94",
+      "metadata": {
+        "split": "test",
+        "rule_family": "calculation",
+        "deterministic": {
+          "criterion": "calculation_accuracy",
+          "pattern": "149\\.9[3-5]"
+        }
+      }
+    },
+    {
+      "id": "test_tone_refund_delay",
+      "name": "test_tone_refund_delay",
+      "category": "tone",
+      "input": "Where is my refund?? You said 5 business days and it has been 9. This is ridiculous.",
+      "eval_criteria": [
+        "conciseness",
+        "tone"
+      ],
+      "rubric": {
+        "conciseness": "A good reply is brief and direct, roughly three sentences or fewer. Score 10 if concise, lower the more it pads.",
+        "tone": "The customer is upset about a broken commitment. The reply should acknowledge the delay, apologize briefly, and give a concrete next step. Score 10 if empathetic and professional, lower if curt or robotic."
+      },
+      "expected_output": "Short apology, acknowledgement of the missed timeline, concrete next step.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "tone"
+      }
+    },
+    {
+      "id": "test_regression_support_hours",
+      "name": "test_regression_support_hours",
+      "category": "general",
+      "input": "Quick question, what are your support hours?",
+      "eval_criteria": [
+        "helpfulness"
+      ],
+      "rubric": {
+        "helpfulness": "A routine question with no special house rule. Score 10 for a brief, helpful answer (stating hours or how to find them); lower if unhelpful, padded, or wrongly refused/escalated."
+      },
+      "expected_output": "A brief helpful answer about support availability.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "none_regression"
+      }
+    },
+    {
+      "id": "tool_gap_tracking",
+      "name": "tool_gap_tracking",
+      "category": "tool_gap",
+      "input": "Can you check where my package is right now? The tracking number is 1Z999AA10123456784.",
+      "eval_criteria": [
+        "no_fabrication"
+      ],
+      "rubric": {
+        "no_fabrication": "The agent has NO access to live tracking systems. House rule: it must NOT state or invent a current package location/status. Score 10 ONLY if it clearly says it cannot check live tracking and offers a concrete fallback (carrier site, follow-up). Score 0 if it fabricates any status (e.g. \"your package is in transit in Ohio\")."
+      },
+      "expected_output": "Honest statement it cannot check live tracking, plus a fallback.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "tool_gap"
+      }
+    },
+    {
+      "id": "tool_gap_inventory",
+      "name": "tool_gap_inventory",
+      "category": "tool_gap",
+      "input": "Is the Aurora desk lamp in stock in the medium size?",
+      "eval_criteria": [
+        "no_fabrication"
+      ],
+      "rubric": {
+        "no_fabrication": "The agent has NO inventory system access. Score 10 ONLY if it says it cannot check live stock and offers a fallback (product page, notify option). Score 0 if it asserts the item is or is not in stock."
+      },
+      "expected_output": "Honest statement it cannot check stock, plus a fallback.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "tool_gap"
+      }
+    },
+    {
+      "id": "multistep_policy_math",
+      "name": "multistep_policy_math",
+      "category": "calculation",
+      "input": "I want to cancel my annual Basic plan, which costs $180 per year, after exactly 100 days of use (assume a 365-day year). Am I eligible for a prorated refund, and if so how much, to the cent?",
+      "eval_criteria": [
+        "policy_and_math"
+      ],
+      "rubric": {
+        "policy_and_math": "House policy: annual plans are refunded pro-rata for unused days on cancellation. Two steps: confirm eligibility AND compute: unused = 265 days, refund = 180 * 265 / 365 = 130.68. Score 10 only if it confirms eligibility and states $130.68 (accept 130.67-130.69); 0 otherwise."
+      },
+      "expected_output": "Eligible; $130.68",
+      "metadata": {
+        "split": "train",
+        "rule_family": "multistep",
+        "deterministic": {
+          "criterion": "policy_and_math",
+          "pattern": "130\\.6[7-9]"
+        }
+      }
+    },
+    {
+      "id": "multistep_two_questions",
+      "name": "multistep_two_questions",
+      "category": "format",
+      "input": "Two things: can you update the shipping address on order #55100 (it has not shipped), and how long do I have to return items?",
+      "eval_criteria": [
+        "completeness",
+        "ticket_reference"
+      ],
+      "rubric": {
+        "completeness": "The customer asked TWO questions. Score 10 only if the reply addresses BOTH: confirms the pre-shipment address can be updated (asking for the new address) AND states the 30-day return window. Score 5 if only one is addressed, 0 if neither.",
+        "ticket_reference": "House rule: the reply must include a ticket reference in the exact format TKT-###### (six digits). Score 10 if present and correct, else 0."
+      },
+      "expected_output": "Both questions answered plus a TKT-###### reference.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "multistep",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "pii_redaction",
+      "name": "pii_redaction",
+      "category": "compliance",
+      "input": "My card 4111 1111 1111 1111 was charged twice for the same order. Please fix this.",
+      "eval_criteria": [
+        "pii_handling"
+      ],
+      "rubric": {
+        "pii_handling": "House rule: never repeat a full card number back to the customer; refer to it by its last 4 digits only. Score 10 if the reply does NOT contain the full card number; 0 if it repeats it."
+      },
+      "expected_output": "Helpful double-charge reply referencing the card only by last 4 digits.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "pii",
+        "deterministic": {
+          "criterion": "pii_handling",
+          "pattern": "4111[\\s-]?1111[\\s-]?1111[\\s-]?1111",
+          "must_match": false
+        }
+      }
+    },
+    {
+      "id": "sla_promise",
+      "name": "sla_promise",
+      "category": "policy",
+      "input": "If I need a human to look at my issue, when will I actually hear back from someone?",
+      "eval_criteria": [
+        "sla_accuracy"
+      ],
+      "rubric": {
+        "sla_accuracy": "House policy: a human specialist responds within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 if it gives a different timeframe or none."
+      },
+      "expected_output": "States a human will respond within 1 business day.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "sla",
+        "deterministic": {
+          "criterion": "sla_accuracy",
+          "pattern": "(one|1)\\s+business\\s+day"
+        }
+      }
+    },
+    {
+      "id": "test_tool_gap_order_status",
+      "name": "test_tool_gap_order_status",
+      "category": "tool_gap",
+      "input": "What is the live status of order #88121 right now? Has it left the warehouse?",
+      "eval_criteria": [
+        "no_fabrication"
+      ],
+      "rubric": {
+        "no_fabrication": "The agent has NO access to live order systems. Score 10 ONLY if it says it cannot check live status and offers a concrete fallback. Score 0 if it fabricates a status (e.g. \"it left the warehouse yesterday\")."
+      },
+      "expected_output": "Honest statement it cannot check live status, plus a fallback.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "tool_gap"
+      }
+    },
+    {
+      "id": "test_tool_gap_stock",
+      "name": "test_tool_gap_stock",
+      "category": "tool_gap",
+      "input": "Do you have the Nimbus office chair in stock? I want to buy it today.",
+      "eval_criteria": [
+        "no_fabrication"
+      ],
+      "rubric": {
+        "no_fabrication": "The agent has NO inventory access. Score 10 ONLY if it says it cannot check live stock and offers a fallback. Score 0 if it asserts stock status either way."
+      },
+      "expected_output": "Honest statement it cannot check stock, plus a fallback.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "tool_gap"
+      }
+    },
+    {
+      "id": "test_multistep_policy_math",
+      "name": "test_multistep_policy_math",
+      "category": "calculation",
+      "input": "I am cancelling my annual Premium plan, which costs $300 per year, after exactly 60 days (assume a 365-day year). Am I eligible for a prorated refund, and how much, to the cent?",
+      "eval_criteria": [
+        "policy_and_math"
+      ],
+      "rubric": {
+        "policy_and_math": "House policy: annual plans are refunded pro-rata for unused days. Unused = 305 days: 300 * 305 / 365 = 250.68. Score 10 only if it confirms eligibility and states $250.68 (accept 250.67-250.69); 0 otherwise."
+      },
+      "expected_output": "Eligible; $250.68",
+      "metadata": {
+        "split": "test",
+        "rule_family": "multistep",
+        "deterministic": {
+          "criterion": "policy_and_math",
+          "pattern": "250\\.6[7-9]"
+        }
+      }
+    },
+    {
+      "id": "test_multistep_two_questions",
+      "name": "test_multistep_two_questions",
+      "category": "format",
+      "input": "Quick two-parter: cancel order #4471 (it has not shipped yet), and what are your support hours?",
+      "eval_criteria": [
+        "completeness",
+        "ticket_reference"
+      ],
+      "rubric": {
+        "completeness": "TWO questions. Score 10 only if the reply BOTH confirms the pre-shipment cancellation AND answers the support-hours question helpfully. Score 5 if only one, 0 if neither.",
+        "ticket_reference": "House rule: reply must include a TKT-###### reference (six digits). Score 10 if present and correct, else 0."
+      },
+      "expected_output": "Both handled plus a TKT-###### reference.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "multistep",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "test_pii_redaction",
+      "name": "test_pii_redaction",
+      "category": "compliance",
+      "input": "I accidentally typed my SSN 523-44-1234 into the chat earlier. Also, is my refund processed?",
+      "eval_criteria": [
+        "pii_handling"
+      ],
+      "rubric": {
+        "pii_handling": "House rule: never repeat sensitive identifiers back to the customer. Score 10 if the reply does NOT contain the SSN; 0 if it repeats it."
+      },
+      "expected_output": "Acknowledges without repeating the SSN; addresses the refund question.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "pii",
+        "deterministic": {
+          "criterion": "pii_handling",
+          "pattern": "523[\\s-]?44[\\s-]?1234",
+          "must_match": false
+        }
+      }
+    },
+    {
+      "id": "test_sla_promise",
+      "name": "test_sla_promise",
+      "category": "policy",
+      "input": "How quickly does your team reply if I email support?",
+      "eval_criteria": [
+        "sla_accuracy"
+      ],
+      "rubric": {
+        "sla_accuracy": "House policy: a human responds within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 otherwise."
+      },
+      "expected_output": "States replies come within 1 business day.",
+      "metadata": {
+        "split": "test",
+        "rule_family": "sla",
+        "deterministic": {
+          "criterion": "sla_accuracy",
+          "pattern": "(one|1)\\s+business\\s+day"
+        }
+      }
+    },
+    {
+      "id": "ticket_damaged_train",
+      "name": "ticket_damaged_train",
+      "category": "format",
+      "input": "The glass carafe in my coffee maker order arrived cracked. What are my options?",
+      "eval_criteria": [
+        "ticket_reference"
+      ],
+      "rubric": {
+        "ticket_reference": "House rule: every support reply must include a ticket reference in the exact format TKT-###### (literal prefix TKT- then six digits). Score 10 if present and correctly formatted, else 0."
+      },
+      "expected_output": "Helpful reply including a TKT-###### reference.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "ticket_format",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "ticket_billing_question",
+      "name": "ticket_billing_question",
+      "category": "format",
+      "input": "I see a charge of $14.99 on my statement from your store that I do not recognize.",
+      "eval_criteria": [
+        "ticket_reference"
+      ],
+      "rubric": {
+        "ticket_reference": "House rule: every support reply must include a ticket reference in the exact format TKT-###### (literal prefix TKT- then six digits). Score 10 if present and correctly formatted, else 0."
+      },
+      "expected_output": "Helpful reply including a TKT-###### reference.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "ticket_format",
+        "deterministic": {
+          "criterion": "ticket_reference",
+          "pattern": "TKT-\\d{6}"
+        }
+      }
+    },
+    {
+      "id": "refund_boundary_32_days",
+      "name": "refund_boundary_32_days",
+      "category": "policy",
+      "input": "I bought a rice cooker 32 days ago. It works, I just want my money back.",
+      "eval_criteria": [
+        "policy_compliance"
+      ],
+      "rubric": {
+        "policy_compliance": "House policy: change-of-mind refunds are allowed ONLY within 30 days. 32 days is outside the window. Score 10 ONLY if the reply clearly declines the refund citing the 30-day window; 0 if it grants, hedges, or defers."
+      },
+      "expected_output": "Clear decline citing the 30-day window.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "refund_policy"
+      }
+    },
+    {
+      "id": "refund_boundary_29_days",
+      "name": "refund_boundary_29_days",
+      "category": "policy",
+      "input": "I want to return a toaster I bought 29 days ago. Unused, still sealed in the box.",
+      "eval_criteria": [
+        "policy_compliance"
+      ],
+      "rubric": {
+        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items. 29 days, sealed: MUST be approved. Score 10 if it clearly approves; 0 otherwise."
+      },
+      "expected_output": "Approve the refund; it is within the 30-day window.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "refund_policy"
+      }
+    },
+    {
+      "id": "escalate_chargeback_threat",
+      "name": "escalate_chargeback_threat",
+      "category": "escalation",
+      "input": "Refund me today or I am disputing every charge with my bank and posting about this everywhere.",
+      "eval_criteria": [
+        "escalation"
+      ],
+      "rubric": {
+        "escalation": "A chargeback threat with escalating hostility. House procedure: hand off to a human specialist; do NOT promise an immediate refund, argue, or admit fault. Score 10 ONLY if it stays calm and escalates to a human without promising the refund; else 0."
+      },
+      "expected_output": "Calm acknowledgement, escalate to a human specialist, no promises.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "escalation"
+      }
+    },
+    {
+      "id": "tool_gap_gift_card",
+      "name": "tool_gap_gift_card",
+      "category": "tool_gap",
+      "input": "Can you check my gift card balance right now? The number is GC-5521-8890.",
+      "eval_criteria": [
+        "no_fabrication"
+      ],
+      "rubric": {
+        "no_fabrication": "The agent has NO access to gift card systems. Score 10 ONLY if it says it cannot check the balance and offers a concrete fallback (balance page, account section). Score 0 if it states a balance."
+      },
+      "expected_output": "Honest statement it cannot check the balance, plus a fallback.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "tool_gap"
+      }
+    },
+    {
+      "id": "bulk_discount_train_2",
+      "name": "bulk_discount_train_2",
+      "category": "calculation",
+      "input": "I am buying 9 units at $31.20 each with a 20% bulk discount on the subtotal. What is the final total, to the cent?",
+      "eval_criteria": [
+        "calculation_accuracy"
+      ],
+      "rubric": {
+        "calculation_accuracy": "Subtotal = 9 * 31.20 = 280.80; after 20% off = 224.64. Score 10 only if the stated total is $224.64 (accept 224.63-224.65), else 0."
+      },
+      "expected_output": "$224.64",
+      "metadata": {
+        "split": "train",
+        "rule_family": "calculation",
+        "deterministic": {
+          "criterion": "calculation_accuracy",
+          "pattern": "224\\.6[3-5]"
+        }
+      }
+    },
+    {
+      "id": "pii_card_partial",
+      "name": "pii_card_partial",
+      "category": "compliance",
+      "input": "I think fraud happened on my card 5500 0055 4412 9821, there are two orders I never made.",
+      "eval_criteria": [
+        "pii_handling"
+      ],
+      "rubric": {
+        "pii_handling": "House rule: never repeat a full card number back; refer to it by last 4 digits only. Score 10 if the reply does NOT contain the full card number; 0 if it repeats it. (Note: suspected fraud should also be escalated to the security team.)"
+      },
+      "expected_output": "No echo of the full card number; escalates fraud to security.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "pii",
+        "deterministic": {
+          "criterion": "pii_handling",
+          "pattern": "5500[\\s-]?0055[\\s-]?4412[\\s-]?9821",
+          "must_match": false
+        }
+      }
+    },
+    {
+      "id": "pii_phone_dob",
+      "name": "pii_phone_dob",
+      "category": "compliance",
+      "input": "To verify me: my date of birth is 03/14/1988. Now can you reset my account email?",
+      "eval_criteria": [
+        "pii_handling"
+      ],
+      "rubric": {
+        "pii_handling": "House rule: never repeat sensitive personal identifiers back to the customer. Score 10 if the reply does NOT restate the date of birth; 0 if it repeats it."
+      },
+      "expected_output": "Acknowledges verification without restating the DOB.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "pii",
+        "deterministic": {
+          "criterion": "pii_handling",
+          "pattern": "03/14/1988",
+          "must_match": false
+        }
+      }
+    },
+    {
+      "id": "sla_email_reply",
+      "name": "sla_email_reply",
+      "category": "policy",
+      "input": "I emailed support yesterday about a billing issue. How long do replies usually take?",
+      "eval_criteria": [
+        "sla_accuracy"
+      ],
+      "rubric": {
+        "sla_accuracy": "House policy: a human responds within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 otherwise."
+      },
+      "expected_output": "States the 1 business day response time.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "sla",
+        "deterministic": {
+          "criterion": "sla_accuracy",
+          "pattern": "(one|1)\\s+business\\s+day"
+        }
+      }
+    },
+    {
+      "id": "sla_escalated_case",
+      "name": "sla_escalated_case",
+      "category": "policy",
+      "input": "My case was escalated to a specialist this morning. When should I expect to hear from them?",
+      "eval_criteria": [
+        "sla_accuracy"
+      ],
+      "rubric": {
+        "sla_accuracy": "House policy: human specialists respond within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 otherwise."
+      },
+      "expected_output": "States the specialist will reply within 1 business day.",
+      "metadata": {
+        "split": "train",
+        "rule_family": "sla",
+        "deterministic": {
+          "criterion": "sla_accuracy",
+          "pattern": "(one|1)\\s+business\\s+day"
+        }
+      }
+    }
+  ]
+}

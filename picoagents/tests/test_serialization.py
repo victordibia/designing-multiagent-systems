@@ -132,8 +132,8 @@ def test_round_robin_orchestrator_serialization():
     model_client1 = OpenAIChatCompletionClient(model="gpt-4.1-mini", api_key="test-1")
     model_client2 = OpenAIChatCompletionClient(model="gpt-4.1-mini", api_key="test-2")
 
-    agent1 = Agent("Agent1", "You are agent 1", description="First agent", model_client=model_client1)
-    agent2 = Agent("Agent2", "You are agent 2", description="Second agent", model_client=model_client2)
+    agent1 = Agent("Agent1", instructions="You are agent 1", description="First agent", model_client=model_client1)
+    agent2 = Agent("Agent2", instructions="You are agent 2", description="Second agent", model_client=model_client2)
 
     termination = MaxMessageTermination(max_messages=5)
 
@@ -165,8 +165,8 @@ def test_ai_orchestrator_serialization():
         model="gpt-4.1-mini", api_key="selector-key"
     )
 
-    agent1 = Agent("Agent1", "You are agent 1", description="First agent", model_client=model_client)
-    agent2 = Agent("Agent2", "You are agent 2", description="Second agent", model_client=model_client)
+    agent1 = Agent("Agent1", instructions="You are agent 1", description="First agent", model_client=model_client)
+    agent2 = Agent("Agent2", instructions="You are agent 2", description="Second agent", model_client=model_client)
 
     termination = TextMentionTermination("COMPLETE")
 

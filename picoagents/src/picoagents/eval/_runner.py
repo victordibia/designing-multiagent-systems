@@ -7,10 +7,11 @@ scores results with judges, and collects metrics.
 
 import asyncio
 import copy
+import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, Union
+from typing import Any, Callable, List, Optional, Sequence, Union
 
 from ..agents._base import BaseAgent
 from .._cancellation_token import CancellationToken
@@ -27,6 +28,9 @@ from ._targets import AgentEvalTarget, PicoAgentTarget
 #: - ``AgentConfig``: wrapped in ``PicoAgentTarget`` (fresh agent per task)
 #: - ``BaseAgent``: wrapped in ``AgentEvalTarget`` (reuses instance)
 Runnable = Union[Target, AgentConfig, BaseAgent]
+
+
+logger = logging.getLogger(__name__)
 
 
 class EvalRunner:
@@ -225,13 +229,13 @@ class EvalRunner:
 
                 store = get_default_store()
                 await store.save_eval_run_from_results(
-                    results, file_path=file_path
+                    results, file_path=str(file_path)
                 )
             except Exception as e:
                 import logging
 
-                logging.getLogger(__name__).warning(
-                    f"Failed to persist eval results: {e}"
+                logging.getLogger(__name__).error(
+                    f"Failed to persist eval results: {e}", exc_info=True
                 )
 
         return results
@@ -251,8 +255,21 @@ class EvalRunner:
                 self._run_single_task(target, task, dataset, cancellation_token)
                 for task in tasks
             ]
-            results = await asyncio.gather(*task_coroutines, return_exceptions=True)
-            results = [r for r in results if isinstance(r, TaskResult)]
+            gathered = await asyncio.gather(*task_coroutines, return_exceptions=True)
+            # A crashed task must stay in the matrix as a failure. Dropping it
+            # let a target that errored on half its work outscore one that
+            # completed everything.
+            results = []
+            for task, outcome in zip(tasks, gathered):
+                if isinstance(outcome, TaskResult):
+                    results.append(outcome)
+                elif isinstance(outcome, BaseException):
+                    logger.error(
+                        f"Task {task.id or task.name!r} failed on target "
+                        f"{target.name!r}: {outcome}",
+                        exc_info=outcome,
+                    )
+                    results.append(self._failed_task_result(target, task, outcome))
         else:
             for task in tasks:
                 if cancellation_token and cancellation_token.is_cancelled():
@@ -264,6 +281,27 @@ class EvalRunner:
                 results.append(result)
 
         return results
+
+    def _failed_task_result(
+        self, target: Any, task: Any, error: BaseException
+    ) -> TaskResult:
+        """A crashed task recorded as a scored failure, not silently dropped."""
+        message = f"{type(error).__name__}: {error}"
+        trajectory = RunTrajectory(
+            task=task, messages=[], success=False, error=message
+        )
+        return TaskResult(
+            task_id=task.id or task.name,
+            target_name=target.name,
+            trajectory=trajectory,
+            score=EvalScore(
+                overall=0.0,
+                dimensions={},
+                reasoning={"error": message},
+                trajectory=trajectory,
+                metadata={"task_failed": True},
+            ),
+        )
 
     async def _run_single_task(
         self,

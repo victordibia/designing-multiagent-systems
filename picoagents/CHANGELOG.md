@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: MCP integration requires `mcp>=2.0.0` (protocol 2026-07-28). Connections are stateless - `server/discover` replaces the `initialize` handshake. Environments with mcp 1.x now raise an explicit upgrade error instead of silently disabling MCP.
 - **BREAKING**: `eval/benchmarks/` was consolidated into `eval/`. `BaseEvalTarget`, `BaseEvalJudge`, `BaseEvalRunner`, `BaseJudge`, and the `benchmarks` submodule are no longer exported from `picoagents.eval`.
 - **BREAKING**: removed `POST /api/entities/{id}/run`; its backing method was deleted in 0.3.0, so every call returned a 500. Use `/run/stream`.
+- **BREAKING**: agent constructor arguments after `name` are keyword-only. The eval consolidation had reordered them, so 0.4.0 positional calls silently rebound `description` onto `instructions`; they now raise `TypeError`.
+- `picoagents.types.EvalTask` and `EvalTrajectory` still resolve, with a `DeprecationWarning`, to `Task` and `RunTrajectory`. `EvalResult` was removed; use `picoagents.eval.TaskResult`.
 - WebUI rebuilt around a collapsible sidebar with URL routing, an Overview landing page reporting what was discovered and from where, and empty states that link to the action they describe.
 - `picoagents.__version__` now reads installed package metadata, making `pyproject.toml` the single source of truth. The WebUI no longer carries its own version.
 
@@ -28,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pip install picoagents` followed by `import picoagents` failed unless the optional `anthropic` extra was installed. The error is now raised when the Anthropic client is constructed, naming the extra.
 - MCP playground presets were empty for anyone who installed from PyPI: the demo servers lived in `examples/`, outside the wheel.
 - Eval runs cancelled during server shutdown stayed marked `running` forever.
+- The LLM judge returned 5.0 for every criterion whenever the client lacked structured output: the fallback parsed a JSON shape the prompt no longer requested. It now parses the documented shape and logs a scoring failure instead of inventing a neutral score.
+- The judge padded unscored criteria with 5.0 and averaged them into `overall`, inflating failing runs; criterion names now match case-insensitively and only real scores are averaged.
+- Evaluation tasks that crashed were dropped from the results matrix, letting a broken target outrank a complete one. They are now recorded as zero-scored failures.
+- `EvalRunner.run(persist=True)` never wrote anything: a `Path` bound to a string column raised, and the error was swallowed as a warning.
+- The first persisted run on a fresh install failed because the runs directory was created after the file was written.
+- Two datasets sharing a task id collided on the tasks primary key; task ids are dataset-local and are now stored as `task_key`.
+- Built-in eval datasets were excluded from the package by a blanket `*.json` ignore rule, so `picoagents eval run coding_v1` failed on every fresh install.
 
 ## [0.4.0] - 2026-02-05
 

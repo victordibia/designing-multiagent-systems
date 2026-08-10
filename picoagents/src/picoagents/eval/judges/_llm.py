@@ -4,6 +4,7 @@ LLM-based evaluation judge.
 This module provides an evaluation judge that uses an LLM to score trajectories.
 """
 
+import logging
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -13,6 +14,9 @@ from ...llm import BaseChatCompletionClient
 from ...messages import SystemMessage, UserMessage
 from ...types import EvalScore, RunTrajectory
 from ._base import BaseEvalJudge
+
+
+logger = logging.getLogger(__name__)
 
 
 class CriterionScore(BaseModel):
@@ -99,15 +103,35 @@ class LLMEvalJudge(BaseEvalJudge):
                 text = (result.message.content or "").strip()
                 match = re.search(r"\{.*\}", text, re.DOTALL)
                 parsed = json.loads(match.group(0) if match else text)
-                dimensions = parsed.get("dimensions", {})
-                reasoning = parsed.get("reasoning", {})
+                if "scores" in parsed:
+                    entries = parsed["scores"]
+                    dimensions = {e["name"]: float(e["score"]) for e in entries}
+                    reasoning = {
+                        e["name"]: e.get("reasoning", "") for e in entries
+                    }
+                else:
+                    # Pre-0.5.0 shape, still accepted
+                    dimensions = parsed.get("dimensions", {})
+                    reasoning = parsed.get("reasoning", {})
+                if not dimensions:
+                    raise ValueError(
+                        f"Judge returned no scores; response was: {text[:200]}"
+                    )
 
-            # Fill missing criteria with defaults
-            for criterion in eval_criteria:
-                dimensions.setdefault(criterion, 5.0)
-                reasoning.setdefault(criterion, "No reasoning provided")
+            # Match criteria case-insensitively: the prompt asks for exact
+            # names but models routinely capitalise them.
+            lowered = {k.lower(): k for k in dimensions}
+            missing = [c for c in eval_criteria if c.lower() not in lowered]
+            for criterion in missing:
+                reasoning.setdefault(criterion, "Not scored by the judge")
 
-            dim_scores = list(dimensions.values())
+            # `overall` averages only real scores. Padding absent criteria with
+            # a neutral 5.0 (as 0.4.0's consolidation did) inflated failing runs.
+            dim_scores = [
+                dimensions[lowered[c.lower()]]
+                for c in eval_criteria
+                if c.lower() in lowered
+            ] or list(dimensions.values())
             overall = sum(dim_scores) / len(dim_scores) if dim_scores else 0.0
 
             return EvalScore(
@@ -125,6 +149,7 @@ class LLMEvalJudge(BaseEvalJudge):
             )
 
         except Exception as e:
+            logger.error(f"Judge scoring failed, returning neutral score: {e}")
             return EvalScore(
                 overall=5.0,
                 dimensions={dim: 5.0 for dim in eval_criteria},
@@ -168,7 +193,10 @@ Instructions:
 2. Consider both the final outcome AND the process (reasoning, communication, error handling)
 3. Score each criterion from 0-10 (0=poor, 5=average, 10=excellent)
 4. Provide brief reasoning for each score
-5. Return one score entry per criterion listed above, using the exact criterion name"""
+5. Return one score entry per criterion listed above, using the exact criterion name
+
+If you cannot return structured output, reply with JSON of exactly this shape:
+{{"scores": [{{"name": "<criterion>", "score": <0-10>, "reasoning": "<why>"}}]}}"""
 
         if self.custom_instructions:
             base_prompt += f"\n\nAdditional Evaluation Guidance:\n{self.custom_instructions}"

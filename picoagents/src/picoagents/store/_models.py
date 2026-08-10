@@ -103,6 +103,9 @@ class DBTask(SQLModel, table=True):
 
     id: str = Field(default_factory=_short_uuid, primary_key=True)
     dataset_id: str = Field(index=True)
+    # The task's id within its dataset. Not globally unique - two datasets
+    # may each number their tasks 1..n - so it cannot be the primary key.
+    task_key: Optional[str] = Field(default=None, index=True)
     name: str
     input: str
     expected_output: Optional[str] = None

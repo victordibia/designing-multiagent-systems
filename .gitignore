@@ -31,6 +31,9 @@ agent_memory/
 *_workspace/
 *_memory/
 *.json
+# Data files that are part of the package must survive the blanket rule above
+!picoagents/src/picoagents/eval/datasets/*.json
+!picoagents/src/picoagents/**/py.typed
 !pyproject.toml
 !package.json
 !tsconfig.json
