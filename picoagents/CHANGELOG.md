@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: MCP integration requires `mcp>=2.0.0` (protocol 2026-07-28). Connections are stateless - `server/discover` replaces the `initialize` handshake. Environments with mcp 1.x now raise an explicit upgrade error instead of silently disabling MCP.
 - **BREAKING**: `eval/benchmarks/` was consolidated into `eval/`. `BaseEvalTarget`, `BaseEvalJudge`, `BaseEvalRunner`, `BaseJudge`, and the `benchmarks` submodule are no longer exported from `picoagents.eval`.
 - **BREAKING**: removed `POST /api/entities/{id}/run`; its backing method was deleted in 0.3.0, so every call returned a 500. Use `/run/stream`.
-- **BREAKING**: agent constructor arguments after `name` are keyword-only. The eval consolidation had reordered them, so 0.4.0 positional calls silently rebound `description` onto `instructions`; they now raise `TypeError`.
+- **BREAKING**: agent constructor arguments after `name` are keyword-only. The eval consolidation had reordered them, so 0.4.0 positional calls silently rebound `description` onto `instructions`; they now raise a `TypeError` that names the change and shows the keyword form.
 - `picoagents.types.EvalTask` and `EvalTrajectory` still resolve, with a `DeprecationWarning`, to `Task` and `RunTrajectory`. `EvalResult` was removed; use `picoagents.eval.TaskResult`.
 - WebUI rebuilt around a collapsible sidebar with URL routing, an Overview landing page reporting what was discovered and from where, and empty states that link to the action they describe.
 - `picoagents.__version__` now reads installed package metadata, making `pyproject.toml` the single source of truth. The WebUI no longer carries its own version.

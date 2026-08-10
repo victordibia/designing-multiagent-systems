@@ -27,6 +27,10 @@ if TYPE_CHECKING:
     from ._agent_as_tool import AgentAsTool
 
 
+_MISSING: Any = object()
+"""Sentinel so a stale positional call is diagnosed before Python's generic error."""
+
+
 class BaseAgent(ComponentBase[BaseModel], ABC):
     """
     Abstract base class defining the core agent interface.
@@ -38,9 +42,9 @@ class BaseAgent(ComponentBase[BaseModel], ABC):
     def __init__(
         self,
         name: str,
-        *,
-        instructions: str,
-        model_client: BaseChatCompletionClient,
+        *_positional: Any,
+        instructions: str = _MISSING,  # type: ignore[assignment]
+        model_client: BaseChatCompletionClient = _MISSING,  # type: ignore[assignment]
         description: str = "",
         tools: Optional[List[Union[BaseTool, Callable]]] = None,
         memory: Optional[BaseMemory] = None,
@@ -84,6 +88,37 @@ class BaseAgent(ComponentBase[BaseModel], ABC):
                 the loop (e.g., check todo completion).
             **kwargs: Additional configuration
         """
+        if _positional:
+            # 0.4.0 took (name, description, instructions, model_client)
+            # positionally. Silently rebinding those onto the current order
+            # produced an agent whose model_client was a string, failing far
+            # from the call site - so say exactly what to change.
+            raise TypeError(
+                "Agent(...) takes only `name` positionally. Pass instructions=, "
+                "model_client=, and description= as keyword arguments - the "
+                "parameter order changed in 0.5.0. For example:\n"
+                "    Agent(\n"
+                '        name="my_agent",\n'
+                '        instructions="You are a helpful assistant.",\n'
+                "        model_client=client,\n"
+                '        description="What this agent does",\n'
+                "    )"
+            )
+
+        missing = [
+            label
+            for label, value in (
+                ("instructions", instructions),
+                ("model_client", model_client),
+            )
+            if value is _MISSING
+        ]
+        if missing:
+            raise TypeError(
+                f"Agent(...) missing required keyword argument(s): "
+                f"{', '.join(missing)}"
+            )
+
         self.name = name
         self.description = description
         self.instructions = instructions
