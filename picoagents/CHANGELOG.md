@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-10
+
 ### Added
 
 - **MCP Playground** (`webui/mcp/`): add and connect MCP servers, invoke tools with generated argument skeletons, answer mid-call input (MRTR) prompts, and read the raw JSON-RPC traffic. Five demo servers ship in `webui/mcp/servers/` covering tools, MRTR, list-changed notifications, MCP Apps (interactive UIs that call tools back over the host bridge), and OAuth-protected resources.
