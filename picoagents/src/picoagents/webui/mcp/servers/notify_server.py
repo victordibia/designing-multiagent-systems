@@ -5,7 +5,7 @@ Exercises `subscriptions/listen`: registering or removing a tool at runtime
 emits a tools list-changed notification to subscribed clients.
 
 Run standalone (stdio):
-    python examples/mcp_lab/notify_server.py
+    python -m picoagents.webui.mcp.servers.notify_server
 """
 
 import sys

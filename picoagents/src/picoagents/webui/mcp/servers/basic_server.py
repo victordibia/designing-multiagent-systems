@@ -5,10 +5,10 @@ A minimal MCP 2.0 server exercising plain tool calls, structured output,
 and progress reporting. Used as a WebUI playground preset and a CI fixture.
 
 Run standalone (stdio):
-    python examples/mcp_lab/basic_server.py
+    python -m picoagents.webui.mcp.servers.basic_server
 
 Or over streamable HTTP:
-    python examples/mcp_lab/basic_server.py --http
+    python -m picoagents.webui.mcp.servers.basic_server --http
 """
 
 import sys

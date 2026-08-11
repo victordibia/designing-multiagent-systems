@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **BREAKING**: MCP integration requires `mcp>=2.0.0` (protocol 2026-07-28). Connections are stateless - `server/discover` replaces the `initialize` handshake. Environments with mcp 1.x now raise an explicit upgrade error instead of silently disabling MCP.
-- **BREAKING**: `eval/benchmarks/` was consolidated into `eval/`. `BaseEvalTarget`, `BaseEvalJudge`, `BaseEvalRunner`, `BaseJudge`, and the `benchmarks` submodule are no longer exported from `picoagents.eval`.
+- **BREAKING**: `eval/benchmarks/` was consolidated into `eval/`. `BaseEvalTarget`, `BaseEvalRunner`, `BaseJudge`, and the `benchmarks` submodule are no longer exported from `picoagents.eval` (`BaseEvalJudge` is still exported).
+- **BREAKING**: the `picoagents benchmark` CLI command is now `picoagents eval`.
+- The built-in dataset `repo_analysis_v1` was replaced by `quick_v1` and `support`; `coding_v1` is unchanged.
 - **BREAKING**: removed `POST /api/entities/{id}/run`; its backing method was deleted in 0.3.0, so every call returned a 500. Use `/run/stream`.
 - **BREAKING**: agent constructor arguments after `name` are keyword-only. The eval consolidation had reordered them, so 0.4.0 positional calls silently rebound `description` onto `instructions`; they now raise a `TypeError` that names the change and shows the keyword form.
 - `picoagents.types.EvalTask` and `EvalTrajectory` still resolve, with a `DeprecationWarning`, to `Task` and `RunTrajectory`. `EvalResult` was removed; use `picoagents.eval.TaskResult`.

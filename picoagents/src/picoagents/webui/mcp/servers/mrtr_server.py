@@ -7,7 +7,7 @@ the tool call with an `InputRequiredResult` and resumes when the client
 retries with the user's response - no open connection required.
 
 Run standalone (stdio):
-    python examples/mcp_lab/mrtr_server.py
+    python -m picoagents.webui.mcp.servers.mrtr_server
 """
 
 import sys

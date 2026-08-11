@@ -19,7 +19,7 @@ protocol mechanics are observable without a browser redirect.
 HTTP only - bearer auth has no meaning over stdio.
 
 Run it (in its own terminal):
-    python examples/mcp_lab/auth_server.py            # port 8931
+    python -m picoagents.webui.mcp.servers.auth_server            # port 8931
 
 Then in the playground add a streamable-http server pointing at
 http://127.0.0.1:8931/mcp with header:

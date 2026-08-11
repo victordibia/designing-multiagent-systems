@@ -14,7 +14,7 @@ iframe issues a real `tools/call` to `query_sales`, so every interaction
 shows up as JSON-RPC traffic in the playground's Wire tab.
 
 Run standalone (stdio):
-    python examples/mcp_lab/apps_server.py
+    python -m picoagents.webui.mcp.servers.apps_server
 """
 
 import sys
