@@ -16,7 +16,7 @@ PicoAgents integrates seamlessly with MCP, allowing you to use tools from any MC
 
 ```bash
 # Install PicoAgents with MCP support
-pip install picoagents[mcp]
+pip install "picoagents[mcp]"   # requires mcp>=2.0.0 (protocol 2026-07-28)
 
 # Or install dependencies separately
 pip install picoagents mcp
@@ -180,8 +180,9 @@ manager, tools = await create_mcp_tools([config])
 # Create domain-specific agent
 agent = Agent(
     name="file_agent",
+    instructions="You help users manage files in /workspace",
+    model_client=model_client,
     tools=tools,
-    system_message="You help users manage files in /workspace"
 )
 ```
 
@@ -219,9 +220,9 @@ async with manager.managed_connection("github"):
 
 ### MCP not available
 ```
-❌ MCP not installed. Install with: pip install picoagents[mcp]
+❌ MCP not installed. Install with: pip install "picoagents[mcp]"   # requires mcp>=2.0.0 (protocol 2026-07-28)
 ```
-**Solution:** Run `pip install picoagents[mcp]` or `pip install mcp`
+**Solution:** Run `pip install "picoagents[mcp]"   # requires mcp>=2.0.0 (protocol 2026-07-28)` or `pip install mcp`
 
 ### Server connection fails
 ```

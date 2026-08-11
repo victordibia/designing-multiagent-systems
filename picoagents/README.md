@@ -19,6 +19,14 @@ pip install picoagents
 - Python 3.10+
 - OpenAI API key (set `OPENAI_API_KEY` environment variable)
 
+**Optional extras:**
+
+```bash
+pip install "picoagents[web]"      # Web UI, MCP playground, evaluation dashboard
+pip install "picoagents[mcp]"      # MCP client (requires mcp>=2.0.0, protocol 2026-07-28)
+pip install "picoagents[persist]"  # Run and eval persistence behind the History page
+```
+
 ## Quick Start
 
 ```python
@@ -48,9 +56,10 @@ PicoAgents implements complete, working examples of:
 - **Agents** - Reasoning loops, tool calling, memory, middleware, streaming
 - **Workflows** - Type-safe DAG-based execution with parallel and conditional patterns
 - **Orchestration** - Round-robin, AI-driven, and plan-based multi-agent coordination
-- **Tools** - 15+ built-in tools (file ops, code execution, web search, planning)
-- **Evaluation** - LLM-as-judge patterns, reference-based validation, metrics
-- **Web UI** - Auto-discovery, streaming chat, session management
+- **Tools** - 15+ built-in tools (file ops, code execution, search, todos, skills)
+- **MCP** - Client for the 2026-07-28 spec, plus a playground for testing servers with full wire visibility
+- **Evaluation** - LLM-as-judge patterns, reference-based validation, datasets and batch runs
+- **Web UI** - Auto-discovery, streaming chat, run history, MCP playground
 
 ## Project Structure
 

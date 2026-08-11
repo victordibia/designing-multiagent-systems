@@ -56,7 +56,7 @@ The book is organized across 4 parts, taking you from theory to production:
 
 | Chapter   | Title                                     | Code                                              | Learning Outcome                                                                         |
 | --------- | ----------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| **Ch 16** | Business Questions from Unstructured Data | [`yc_analysis/`](examples/workflows/yc_analysis/) | Production case study: Analyze 5,000+ companies with cost optimization and checkpointing |
+| **Ch 14** | Business Questions from Unstructured Data | [`yc_analysis/`](examples/workflows/yc_analysis/) | Production case study: Analyze 5,000+ companies with cost optimization and checkpointing |
 | **Ch 17** | Software Engineering Agent                | [`swe_agent/`](examples/agents/swe_agent/)        | Build a complete software engineering agent with coding tools and workspace management   |
 
 ## Getting Started
@@ -96,9 +96,11 @@ pip install -e .
 
 # Or install with optional features
 pip install -e ".[web]"           # Web UI and API server
+pip install -e ".[mcp]"           # MCP client and playground (mcp>=2.0.0)
+pip install -e ".[persist]"       # Run/eval persistence behind the History page
 pip install -e ".[computer-use]"  # Browser automation
 pip install -e ".[examples]"      # Run example scripts
-pip install -e ".[all]"           # Everything
+pip install -e ".[all]"           # Most extras (not persist, otel, dev, frameworks)
 
 # Set up your API key
 export OPENAI_API_KEY="your-api-key-here"
@@ -137,7 +139,7 @@ PicoAgents supports multiple LLM providers through a unified interface. Each pro
 | Provider          | Client Class                                                                             | Setup                                                                                                                                                                              | Example                                                          | Source                                                               |
 | ----------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------- |
 | **OpenAI**        | [`OpenAIChatCompletionClient`](picoagents/src/picoagents/llm/_openai.py)                 | 1. Get API key from [platform.openai.com](https://platform.openai.com)<br>2. `export OPENAI_API_KEY='sk-...'`                                                                      | [`basic-agent.py`](examples/agents/basic-agent.py)               | [`_openai.py`](picoagents/src/picoagents/llm/_openai.py)             |
-| **Azure OpenAI**  | [`AzureOpenAIChatCompletionClient`](picoagents/src/picoagents/llm/_azure_openai.py)      | 1. Deploy model on [Azure Portal](https://portal.azure.com)<br>2. Set endpoint, key, deployment name                                                                               | [`agent_azure.py`](examples/agents/agent_azure.py)               | [`_azure_openai.py`](picoagents/src/picoagents/llm/_azure_openai.py) |
+| **Azure OpenAI**  | [`AzureOpenAIChatCompletionClient`](picoagents/src/picoagents/llm/_azure_openai.py)      | 1. Deploy model on [Azure Portal](https://portal.azure.com)<br>2. Set endpoint, key, deployment name                                                                               | See [`swe_agent/agent.py`](examples/agents/swe_agent/agent.py)   | [`_azure_openai.py`](picoagents/src/picoagents/llm/_azure_openai.py) |
 | **Anthropic**     | [`AnthropicChatCompletionClient`](picoagents/src/picoagents/llm/_anthropic.py)           | 1. Get API key from [console.anthropic.com](https://console.anthropic.com)<br>2. `export ANTHROPIC_API_KEY='sk-...'`                                                               | [`agent_anthropic.py`](examples/agents/agent_anthropic.py)       | [`_anthropic.py`](picoagents/src/picoagents/llm/_anthropic.py)       |
 | **GitHub Models** | [`OpenAIChatCompletionClient`](picoagents/src/picoagents/llm/_openai.py)<br>+ `base_url` | 1. Get token from [github.com/settings/tokens](https://github.com/settings/tokens)<br>2. `export GITHUB_TOKEN='ghp_...'`<br>3. Set `base_url="https://models.github.ai/inference"` | [`agent_githubmodels.py`](examples/agents/agent_githubmodels.py) | Uses [`_openai.py`](picoagents/src/picoagents/llm/_openai.py)        |
 | **Local/Custom**  | [`OpenAIChatCompletionClient`](picoagents/src/picoagents/llm/_openai.py)<br>+ `base_url` | Point to any OpenAI-compatible endpoint<br>(Ollama, LM Studio, vLLM, etc.)                                                                                                         | Use `base_url="http://localhost:8000"`                           | Uses [`_openai.py`](picoagents/src/picoagents/llm/_openai.py)        |
@@ -179,7 +181,9 @@ picoagents ui
 picoagents ui --dir ./examples
 ```
 
-The Web UI provides streaming chat, real-time debug events, session management, and automatic discovery of all agents and workflows in your codebase.
+The Web UI discovers the agents, orchestrators, and workflows in your codebase and gives you a place to run them: streaming chat, a live debug rail, and recorded run history.
+
+It also includes an **MCP Playground** for connecting to MCP servers, invoking their tools, and reading the raw JSON-RPC traffic, plus an **evaluation dashboard** for datasets, targets, and batch runs. Five demo MCP servers ship with the package, covering tools, mid-call input, notifications, interactive UIs, and OAuth-protected access.
 
 ### Run Examples
 
@@ -192,11 +196,11 @@ python examples/agents/basic-agent.py
 # Browser automation agent (Chapter 5)
 python examples/agents/computer_use.py
 
-# Autonomous orchestration (Chapter 6)
+# Autonomous orchestration (Chapter 7)
 python examples/orchestration/round-robin.py
 python examples/orchestration/ai-driven.py
 
-# Production workflow (Chapter 13)
+# Production workflow (Chapter 14)
 python examples/workflows/yc_analysis/workflow.py
 ```
 
@@ -217,15 +221,15 @@ picoagents/
 │   ├── workflow/          # Type-safe workflow engine (Ch 5)
 │   │   ├── core/          # DAG-based execution with streaming
 │   │   └── steps/         # Reusable workflow steps
-│   ├── orchestration/     # Autonomous coordination (Ch 6)
+│   ├── orchestration/     # Autonomous coordination (Ch 7)
 │   │   ├── _round_robin.py  # Sequential turn-taking
 │   │   ├── _ai.py           # LLM-driven speaker selection
 │   │   └── _plan.py         # Plan-based orchestration (Magentic One)
 │   ├── tools/             # 15+ built-in tools (core, research, coding)
-│   ├── eval/              # Evaluation framework (Ch 8)
+│   ├── eval/              # Evaluation framework (Ch 10)
 │   │   ├── judges/        # LLM-as-judge, reference-based
 │   │   └── _runner.py     # Test execution and metrics
-│   ├── webui/             # Web UI with auto-discovery (Ch 6)
+│   ├── webui/             # Web UI, MCP playground (Ch 8, Ch 12)
 │   ├── llm/               # OpenAI and Azure clients
 │   ├── memory/            # Memory implementations
 │   ├── termination/       # 9 termination conditions

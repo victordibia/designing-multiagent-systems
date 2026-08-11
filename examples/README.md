@@ -8,6 +8,7 @@ Runnable examples for the book [Designing Multi-Agent Systems](https://buy.multi
 cd picoagents
 pip install -e ".[all]"
 cp .env.example .env  # Add your OPENAI_API_KEY
+cd ..
 python examples/agents/basic-agent.py
 ```
 
@@ -36,7 +37,7 @@ Core agent patterns from Chapter 4.
 | `serialization.py` | Saving and loading agent state |
 
 ### workflows/
-Explicit control patterns from Chapter 5.
+Explicit control patterns from Chapter 6.
 
 | File | Description |
 |------|-------------|
@@ -48,7 +49,7 @@ Explicit control patterns from Chapter 5.
 | `yc_analysis/` | Y Combinator startup analysis workflow |
 
 ### orchestration/
-Autonomous coordination from Chapter 6.
+Autonomous coordination from Chapter 7.
 
 | File | Description |
 |------|-------------|
@@ -58,7 +59,7 @@ Autonomous coordination from Chapter 6.
 | `plan-based.py` | Orchestrator creates and follows a plan |
 
 ### evaluation/
-Testing and metrics from Chapter 8.
+Testing and metrics from Chapter 10.
 
 | File | Description |
 |------|-------------|
