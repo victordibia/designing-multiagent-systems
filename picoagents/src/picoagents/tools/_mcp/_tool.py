@@ -96,11 +96,11 @@ class MCPTool(BaseTool):
             ToolResult with execution outcome
         """
         try:
-            # Get the MCP client session
-            session = await self.client_manager.get_session(self.server_id)
+            # Get the MCP client (connects on first use)
+            client = await self.client_manager.get_client(self.server_id)
 
             # Call the MCP tool
-            result: "CallToolResult" = await session.call_tool(
+            result: "CallToolResult" = await client.call_tool(
                 self.mcp_tool_name, arguments=parameters
             )
 

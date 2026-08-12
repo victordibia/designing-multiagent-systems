@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING**: `MCPClientManager.get_session()` is now `get_client()`, with no alias. The method returns an `mcp.client.Client`, and the 2026-07-28 protocol has no sessions, so the old name described something the protocol removed. Callers that used the `get_client` alias added in 0.5.0 are unaffected.
+
 ## [0.5.0] - 2026-08-10
 
 ### Added

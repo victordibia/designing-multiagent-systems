@@ -1,8 +1,9 @@
 """
 Tests for the WebUI MCP playground router (/api/mcp).
 
-Uses FastAPI's TestClient against the real WebUI app, with the lab servers
-from examples/mcp_lab/ spawned over stdio - the same path the UI exercises.
+Uses FastAPI's TestClient against the real WebUI app, with the demo servers
+from picoagents/webui/mcp/servers/ spawned over stdio - the same path the UI
+exercises.
 """
 
 import sys

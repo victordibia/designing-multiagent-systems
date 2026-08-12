@@ -1,9 +1,8 @@
-# MCP Lab Servers
+# MCP Demo Servers
 
-The demo MCP servers moved **into the package** so that `pip install picoagents`
-gets working playground presets instead of an empty server list:
-
-    picoagents/src/picoagents/webui/mcp/servers/
+Five small MCP servers that ship inside the package, so `pip install picoagents`
+gets working playground presets instead of an empty server list. Each one
+exercises a different part of the 2026-07-28 protocol.
 
 | Server | Exercises |
 |---|---|

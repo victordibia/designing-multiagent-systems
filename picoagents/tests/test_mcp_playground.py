@@ -1,8 +1,8 @@
 """
 Tests for the MCP SDK 2.0 integration (protocol 2026-07-28).
 
-Covers the migrated MCPClientManager against the lab servers in
-examples/mcp_lab/, across three layers:
+Covers the migrated MCPClientManager against the demo servers in
+picoagents/webui/mcp/servers/, across three layers:
 
 1. In-memory transport - fast matrix: discovery, tool calls, structured
    output, wire tap, MRTR (elicitation) round trips

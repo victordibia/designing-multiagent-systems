@@ -144,15 +144,15 @@ async def test_mcp_tool_creation_from_mock():
 
     # Create a mock client manager
     mock_manager = MagicMock(spec=MCPClientManager)
-    mock_session = AsyncMock()
+    mock_client = AsyncMock()
 
     # Mock call_tool response
     mock_result = CallToolResult(
         content=[TextContent(type="text", text="Mock tool result")],
         isError=False,
     )
-    mock_session.call_tool = AsyncMock(return_value=mock_result)
-    mock_manager.get_session = AsyncMock(return_value=mock_session)
+    mock_client.call_tool = AsyncMock(return_value=mock_result)
+    mock_manager.get_client = AsyncMock(return_value=mock_client)
 
     # Create MCPTool
     tool = MCPTool(
@@ -181,9 +181,9 @@ async def test_mcp_tool_creation_from_mock():
     assert result.metadata["mcp_server"] == "mock_server"
     assert result.metadata["mcp_tool"] == "test_tool"
 
-    # Verify session was called correctly
-    mock_manager.get_session.assert_called_once_with("mock_server")
-    mock_session.call_tool.assert_called_once_with(
+    # Verify the client was fetched correctly
+    mock_manager.get_client.assert_called_once_with("mock_server")
+    mock_client.call_tool.assert_called_once_with(
         "test_tool", arguments={"arg": "test_value"}
     )
 
@@ -197,7 +197,7 @@ async def test_mcp_tool_handles_errors():
 
     # Create a mock that raises an error
     mock_manager = MagicMock(spec=MCPClientManager)
-    mock_manager.get_session = AsyncMock(side_effect=ConnectionError("Server down"))
+    mock_manager.get_client = AsyncMock(side_effect=ConnectionError("Server down"))
 
     tool = MCPTool(
         mcp_tool_name="failing_tool",
@@ -223,7 +223,7 @@ async def test_mcp_tool_structured_content():
     from picoagents.tools._mcp import MCPTool
 
     mock_manager = MagicMock(spec=MCPClientManager)
-    mock_session = AsyncMock()
+    mock_client = AsyncMock()
 
     # Mock with structured content
     mock_result = CallToolResult(
@@ -231,8 +231,8 @@ async def test_mcp_tool_structured_content():
         structuredContent={"result": "success", "data": {"value": 42}},
         isError=False,
     )
-    mock_session.call_tool = AsyncMock(return_value=mock_result)
-    mock_manager.get_session = AsyncMock(return_value=mock_session)
+    mock_client.call_tool = AsyncMock(return_value=mock_result)
+    mock_manager.get_client = AsyncMock(return_value=mock_client)
 
     tool = MCPTool(
         mcp_tool_name="structured_tool",

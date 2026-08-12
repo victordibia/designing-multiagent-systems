@@ -289,9 +289,9 @@ class MCPClientManager:
 
         self._tools[server_id] = mcp_tools
 
-    async def get_session(self, server_id: str) -> Client:
+    async def get_client(self, server_id: str) -> Client:
         """
-        Get the MCP client for a server (named for pre-2.0 compatibility).
+        Get the MCP client for a server.
 
         Automatically connects if not already connected.
 
@@ -307,9 +307,6 @@ class MCPClientManager:
         if server_id not in self._clients:
             await self.connect(server_id)
         return self._clients[server_id]
-
-    # 2.0 name; get_session is kept so existing code and mocks keep working
-    get_client = get_session
 
     def get_server_info(self, server_id: str) -> Dict[str, Any]:
         """
