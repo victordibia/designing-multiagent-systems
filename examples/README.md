@@ -19,7 +19,8 @@ python examples/agents/basic-agent.py
 | Ch 4: Building Your First Agent | [`agents/`](agents/) | Tool use, memory, structured output, middleware |
 | Ch 5: Workflows | [`workflows/`](workflows/) | Sequential, conditional, parallel execution patterns |
 | Ch 6: Orchestration | [`orchestration/`](orchestration/) | Round-robin, AI-driven, and plan-based multi-agent coordination |
-| Ch 8: Evaluation | [`evaluation/`](evaluation/) | LLM-as-judge, reference-based evaluation, metrics |
+| Ch 10: Evaluation | [`evaluation/`](evaluation/) | LLM-as-judge, reference-based evaluation, metrics |
+| Ch 11: Optimization | [`optimization/`](optimization/) | Optimizing instructions, skills, and tools from eval feedback |
 
 ## All Examples
 
@@ -66,6 +67,15 @@ Testing and metrics from Chapter 10.
 | `agent-evaluation.py` | LLM-as-judge evaluation |
 | `reference-based-evaluation.py` | Compare against expected outputs |
 | `comprehensive-evaluation.py` | Full evaluation suite |
+
+### optimization/
+Automatically improving an agent from evaluation feedback, from Chapter 11.
+
+| File | Description |
+|------|-------------|
+| `optimize-agent.py` | The core optimization loop: reflect on failures, rewrite the instruction |
+| `generalization.py` | Optimize on train, score on held-out test: learned rules or memorized eval? |
+| `compare-optimizers.py` | Reflective, Pareto, MIPRO, and real GEPA under an equal budget |
 
 ### Other Examples
 
