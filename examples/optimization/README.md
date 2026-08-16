@@ -44,7 +44,8 @@ not evidence.
 
 ## The dataset
 
-All three scripts use the builtin `support` dataset (35 customer-support tasks):
+All three scripts use the builtin `support` dataset (46 customer-support tasks, 24 of
+them deterministically scored):
 
 ```python
 from picoagents.eval import load_builtin_dataset
@@ -100,11 +101,15 @@ optimization spends money is usually wrong:
 
 ```python
 print(result.cost.summary())
-# source           tokens  llm_calls        usd
-# agent            19,226         50          -
-# judge            32,451         50    $1.0812
-# reflection        3,402          3    $0.1365
+# source           tokens  llm_calls
+# agent            48,094         77
+# judge            52,406         80
+# reflection        4,858          2
 ```
+
+Treat tokens as the reliable number. The `usd` column is filled in by the model client
+and is only as good as its price table, so for a real cost figure multiply the token
+counts by your own deployment's pricing rather than trusting the estimate.
 
 Reflection - the "intelligence" of the loop - is typically a few percent of the bill.
 Running and *judging* candidates is nearly all of it, and unlike the one-time

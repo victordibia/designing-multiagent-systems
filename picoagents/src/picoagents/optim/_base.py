@@ -51,9 +51,43 @@ class CostLog:
     judge: Usage = field(default_factory=_zero_usage)
     reflection: Usage = field(default_factory=_zero_usage)
 
+    # Latency, accumulated separately because ``Usage.__add__`` takes the MAX of
+    # duration_ms (correct when aggregating parallel calls, wrong for summing a
+    # sequence of them). These are summed milliseconds of LLM time per source.
+    agent_ms: int = 0
+    judge_ms: int = 0
+    reflection_ms: int = 0
+
+    # Per-rollout agent latency, for percentiles.
+    rollout_ms: List[int] = field(default_factory=list)
+
     @property
     def total(self) -> Usage:
         return self.agent + self.judge + self.reflection
+
+    @property
+    def total_ms(self) -> int:
+        """Total LLM time. Note this is not wall clock: it excludes local overhead,
+        and undercounts when calls run concurrently."""
+        return self.agent_ms + self.judge_ms + self.reflection_ms
+
+    def latency(self) -> Dict[str, Optional[float]]:
+        """Latency summary in seconds, plus per-rollout percentiles."""
+        ms = sorted(self.rollout_ms)
+
+        def pct(p: float) -> Optional[float]:
+            if not ms:
+                return None
+            return ms[min(int(len(ms) * p), len(ms) - 1)] / 1000
+
+        return {
+            "agent_s": self.agent_ms / 1000,
+            "judge_s": self.judge_ms / 1000,
+            "reflection_s": self.reflection_ms / 1000,
+            "total_llm_s": self.total_ms / 1000,
+            "rollout_p50_s": pct(0.50),
+            "rollout_p95_s": pct(0.95),
+        }
 
     def to_dict(self) -> Dict[str, Dict[str, Optional[float]]]:
         def row(u: Usage) -> Dict[str, Optional[float]]:
@@ -211,15 +245,19 @@ class BaseOptimizer(ABC):
         for s in scores:
             if s.trajectory and s.trajectory.usage:
                 self.cost.agent = self.cost.agent + s.trajectory.usage  # rollout cost
+                self.cost.agent_ms += s.trajectory.usage.duration_ms
+                self.cost.rollout_ms.append(s.trajectory.usage.duration_ms)
             judge_usage = s.metadata.get("judge_usage")
             if isinstance(judge_usage, Usage):
                 self.cost.judge = self.cost.judge + judge_usage  # eval cost
+                self.cost.judge_ms += judge_usage.duration_ms
         return scores
 
     def _track_reflection(self, usage: Optional[Usage]) -> None:
         """Subclasses call this after each proposer/reflector LLM call."""
         if usage is not None:
             self.cost.reflection = self.cost.reflection + usage
+            self.cost.reflection_ms += usage.duration_ms
 
     def _budget_exhausted(self) -> bool:
         """True once the rollout budget (if any) is spent."""

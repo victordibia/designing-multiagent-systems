@@ -112,8 +112,11 @@ class PicoGepaAdapter:
         from gepa.core.adapter import EvaluationBatch
 
         cfg = self.config_from_candidate(candidate)
-        self.eval_count += len(batch)
+        # Count rollouts only once the evaluation returns. Counting before the call
+        # meant a raised evaluation (a content filter rejection, say) still bumped
+        # eval_count while contributing no cost, silently understating spend.
         scores = asyncio.run(self.runner.evaluate(PicoAgentTarget(cfg), list(batch)))
+        self.eval_count += len(scores)
 
         outputs: List[str] = []
         score_vals: List[float] = []
@@ -123,9 +126,12 @@ class PicoGepaAdapter:
             # cost: agent rollout + judge, same accounting as BaseOptimizer._eval
             if s.trajectory and s.trajectory.usage:
                 self.cost.agent = self.cost.agent + s.trajectory.usage
+                self.cost.agent_ms += s.trajectory.usage.duration_ms
+                self.cost.rollout_ms.append(s.trajectory.usage.duration_ms)
             ju = s.metadata.get("judge_usage")
             if isinstance(ju, Usage):
                 self.cost.judge = self.cost.judge + ju
+                self.cost.judge_ms += ju.duration_ms
 
             outputs.append(s.get_final_response())
             score_vals.append(s.overall)

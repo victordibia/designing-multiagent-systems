@@ -1,7 +1,7 @@
 {
   "name": "support",
-  "version": "2.2.0",
-  "description": "Customer-support agent tasks for measuring agent optimization, designed to mirror a real e-commerce help desk rather than a toy benchmark. Tasks follow real contact-driver categories (order status, returns/refunds, warranty, account security, billing math, escalations), and every house rule is one real support organizations have: ticket reference formats, a 30-day return window, escalation policy for safety/legal/fraud, prorated billing. Rules live only in the rubric (the SME-curated policy doc), mirroring the real deployment gap optimization must close. TRAIN/TEST SPLIT (task.metadata.split): test tasks reuse the same rule families with new customer contacts - like optimizing on last month's tickets and deploying on next month's - so scoring the optimized agent on test measures whether it learned the policy or memorized the tickets. Paired tasks (decline-vs-approve, escalate-vs-handle) block degenerate policies; a routine regression task checks optimization does not break normal traffic. Where a rule is objectively checkable (formats, arithmetic) task.metadata.deterministic gives a regex for zero-variance scoring; model judging is reserved for genuinely subjective criteria (tone), as in real support QA.",
+  "version": "3.0.0",
+  "description": "Customer-support agent tasks for measuring agent optimization, designed to mirror a real e-commerce help desk rather than a toy benchmark. Tasks follow real contact-driver categories (order status, returns/refunds, warranty, account security, billing math, escalations), and every house rule is one real support organizations have: ticket reference formats, a 30-day return window, escalation policy for safety/legal/fraud, prorated billing. Rules live only in the rubric (the SME-curated policy doc), mirroring the real deployment gap optimization must close. TRAIN/TEST SPLIT (task.metadata.split): test tasks reuse the same rule families with new customer contacts - like optimizing on last month's tickets and deploying on next month's - so scoring the optimized agent on test measures whether it learned the policy or memorized the tickets. Paired tasks (decline-vs-approve, escalate-vs-handle) block degenerate policies; a routine regression task checks optimization does not break normal traffic. Where a rule is objectively checkable (formats, arithmetic, forbidden PII) task.metadata.deterministic gives a regex for zero-variance scoring. Model-judged criteria use GRADED rubrics with explicit score bands rather than pass/fail, because a judge asked for a binary verdict returns intermediate values anyway and binary scoring on half-learned rules maximises variance. Rubrics grade the outcome, never the exact wording.",
   "categories": [
     "format",
     "policy",
@@ -30,7 +30,7 @@
         "split": "train",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -51,7 +51,7 @@
         "split": "train",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -65,7 +65,7 @@
         "ticket_reference"
       ],
       "rubric": {
-        "policy_compliance": "A defect within warranty (normal use, well under 30 days) should be approved for replacement/repair. Score 10 if it approves a replacement or repair, else 0.",
+        "policy_compliance": "A defect reported within the warranty period must be approved for replacement, repair or refund. Grade the outcome, not the wording. 10: clearly approves a replacement, repair or refund. 7: approves in principle but is vague about what happens next. 4: neither approves nor declines. 0: declines, or treats it as a change-of-mind request.",
         "ticket_reference": "The reply must include a reference formatted exactly as TKT-###### (six digits). Score 10 if present and correct, else 0."
       },
       "expected_output": "Approve a warranty replacement and include TKT-######.",
@@ -74,7 +74,7 @@
         "split": "train",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -104,7 +104,7 @@
         "policy_compliance"
       ],
       "rubric": {
-        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items. This is 10 days old and unused, so it MUST be approved. Score 10 if it clearly approves the refund, else 0."
+        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items, and this request qualifies. Grade the outcome, not the wording. 10: clearly approves the refund and gives a next step. 7: approves but gives no next step. 4: neither approves nor declines (hedges or only asks for details). 0: declines."
       },
       "expected_output": "Approve the refund and explain next steps.",
       "metadata": {
@@ -121,7 +121,7 @@
         "policy_compliance"
       ],
       "rubric": {
-        "policy_compliance": "A defective item reported within the return window must be refunded (or replaced). Score 10 if it clearly approves a refund or replacement, else 0."
+        "policy_compliance": "A defect reported within the warranty period must be approved for replacement, repair or refund. Grade the outcome, not the wording. 10: clearly approves a replacement, repair or refund. 7: approves in principle but is vague about what happens next. 4: neither approves nor declines. 0: declines, or treats it as a change-of-mind request."
       },
       "expected_output": "Approve a refund/replacement for the defective item.",
       "metadata": {
@@ -138,7 +138,7 @@
         "escalation"
       ],
       "rubric": {
-        "escalation": "Safety incident + legal threat + high value. The reply MUST hand off to a human safety/claims specialist and MUST NOT do any of: admit fault, quote refund policy, promise or discuss compensation, or propose its own resolution steps. Score 10 ONLY if it escalates to a human and avoids all of those; score 0 if it does any of them."
+        "escalation": "House procedure: hand off to a human specialist, and do not admit fault, quote refund policy, promise compensation, or attempt a resolution. Grade the outcome, not the wording. 10: escalates to a human and avoids all of those. 7: escalates, but also does one thing it should not (quotes policy, or proposes a partial fix). 4: acknowledges the seriousness but does not escalate. 0: attempts to resolve it directly, admits fault, or promises compensation."
       },
       "expected_output": "Express concern, do not admit fault, escalate to a human specialist.",
       "metadata": {
@@ -155,7 +155,7 @@
         "escalation"
       ],
       "rubric": {
-        "escalation": "Suspected fraud/account compromise. The reply MUST escalate to the security/fraud team and MUST NOT attempt to process refunds or resolve the disputed charges itself. Score 10 ONLY if it escalates to security/fraud without resolving the charges itself; score 0 otherwise."
+        "escalation": "House procedure: hand off to the security/fraud team, and do not admit fault, quote refund policy, promise compensation, or attempt a resolution. Grade the outcome, not the wording. 10: escalates to a human and avoids all of those. 7: escalates, but also does one thing it should not (quotes policy, or proposes a partial fix). 4: acknowledges the seriousness but does not escalate. 0: attempts to resolve it directly, admits fault, or promises compensation."
       },
       "expected_output": "Escalate to the security/fraud team; do not resolve charges directly.",
       "metadata": {
@@ -172,7 +172,7 @@
         "resolution"
       ],
       "rubric": {
-        "resolution": "Routine pre-shipment request, NOT an escalation. The reply should handle it directly (confirm the address can be updated before shipment and ask for the new address). Score 10 if handled directly; score 0 if it unnecessarily escalates to a human or refuses."
+        "resolution": "This is a routine pre-shipment request, not an escalation. Grade the outcome, not the wording. 10: handles it directly, confirming the change is possible and asking for what it needs. 7: handles it directly but is vague about next steps. 4: partially handles it and also refers the customer elsewhere. 0: escalates to a human unnecessarily, or refuses."
       },
       "expected_output": "Confirm the address can be changed pre-shipment; request the new address.",
       "metadata": {
@@ -197,7 +197,7 @@
         "split": "train",
         "deterministic": {
           "criterion": "calculation_accuracy",
-          "pattern": "124\\.8[7-9]"
+          "pattern": "(?<!\\d)124\\.8[7-9]"
         }
       }
     },
@@ -218,7 +218,7 @@
         "split": "train",
         "deterministic": {
           "criterion": "calculation_accuracy",
-          "pattern": "188\\.(69|70|71)"
+          "pattern": "(?<!\\d)188\\.(69|70|71)"
         }
       }
     },
@@ -277,7 +277,7 @@
         "rule_family": "ticket_format",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -298,7 +298,7 @@
         "rule_family": "ticket_format",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -311,7 +311,7 @@
         "policy_compliance"
       ],
       "rubric": {
-        "policy_compliance": "House policy: change-of-mind refunds are allowed ONLY within 30 days. This order is 60 days old. The reply MUST clearly decline the full refund and cite the 30-day window. Score 10 ONLY if it clearly declines; 0 if it grants, hedges, or defers."
+        "policy_compliance": "House policy: change-of-mind refunds are allowed only within 30 days of purchase (this order is 60 days old), and this request is outside that window. Grade the outcome, not the wording. 10: clearly declines the full refund and cites the 30-day window. 7: declines, but does not explain why. 4: neither clearly declines nor grants (hedges, defers to another team, or only asks for details). 0: grants the full refund."
       },
       "expected_output": "Clear decline citing the 30-day window.",
       "metadata": {
@@ -328,7 +328,7 @@
         "policy_compliance"
       ],
       "rubric": {
-        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items. 5 days, unopened: MUST be approved. Score 10 if it clearly approves, else 0."
+        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items, and this request qualifies. Grade the outcome, not the wording. 10: clearly approves the refund and gives a next step. 7: approves but gives no next step. 4: neither approves nor declines (hedges or only asks for details). 0: declines."
       },
       "expected_output": "Approve the refund and explain next steps.",
       "metadata": {
@@ -345,7 +345,7 @@
         "escalation"
       ],
       "rubric": {
-        "escalation": "Injury + potential legal action. The reply MUST hand off to a human safety/claims specialist and MUST NOT admit fault, quote refund policy, promise compensation, or propose its own resolution. Score 10 ONLY if it escalates and avoids all of those; else 0."
+        "escalation": "House procedure: hand off to a human specialist, and do not admit fault, quote refund policy, promise compensation, or attempt a resolution. Grade the outcome, not the wording. 10: escalates to a human and avoids all of those. 7: escalates, but also does one thing it should not (quotes policy, or proposes a partial fix). 4: acknowledges the seriousness but does not escalate. 0: attempts to resolve it directly, admits fault, or promises compensation."
       },
       "expected_output": "Express concern, no fault admission, escalate to human specialist.",
       "metadata": {
@@ -362,7 +362,7 @@
         "resolution"
       ],
       "rubric": {
-        "resolution": "Routine pre-shipment cancellation, NOT an escalation. Score 10 if handled directly (confirm cancellation before shipment); 0 if it unnecessarily escalates or refuses."
+        "resolution": "This is a routine pre-shipment request, not an escalation. Grade the outcome, not the wording. 10: handles it directly, confirming the change is possible and asking for what it needs. 7: handles it directly but is vague about next steps. 4: partially handles it and also refers the customer elsewhere. 0: escalates to a human unnecessarily, or refuses."
       },
       "expected_output": "Confirm the order can be cancelled pre-shipment.",
       "metadata": {
@@ -387,7 +387,7 @@
         "rule_family": "calculation",
         "deterministic": {
           "criterion": "calculation_accuracy",
-          "pattern": "141\\.(29|30|31)"
+          "pattern": "(?<!\\d)141\\.(29|30|31)"
         }
       }
     },
@@ -408,7 +408,7 @@
         "rule_family": "calculation",
         "deterministic": {
           "criterion": "calculation_accuracy",
-          "pattern": "149\\.9[3-5]"
+          "pattern": "(?<!\\d)149\\.9[3-5]"
         }
       }
     },
@@ -440,7 +440,7 @@
         "helpfulness"
       ],
       "rubric": {
-        "helpfulness": "A routine question with no special house rule. Score 10 for a brief, helpful answer (stating hours or how to find them); lower if unhelpful, padded, or wrongly refused/escalated."
+        "helpfulness": "A routine question with no special house rule attached. This task exists to detect an optimized instruction degrading ordinary traffic. 10: brief and helpful. 7: helpful but padded. 4: unhelpful or evasive. 0: refuses or escalates it."
       },
       "expected_output": "A brief helpful answer about support availability.",
       "metadata": {
@@ -457,7 +457,7 @@
         "no_fabrication"
       ],
       "rubric": {
-        "no_fabrication": "The agent has NO access to live tracking systems. House rule: it must NOT state or invent a current package location/status. Score 10 ONLY if it clearly says it cannot check live tracking and offers a concrete fallback (carrier site, follow-up). Score 0 if it fabricates any status (e.g. \"your package is in transit in Ohio\")."
+        "no_fabrication": "The agent has NO access to live tracking data. Grade the outcome, not the wording. 10: states plainly that it cannot look this up and offers a concrete fallback. 7: states it cannot look this up but offers no fallback. 4: neither states the limitation nor invents a status; only asks for more details in a way that implies it could check. 0: invents or asserts a live status."
       },
       "expected_output": "Honest statement it cannot check live tracking, plus a fallback.",
       "metadata": {
@@ -474,7 +474,7 @@
         "no_fabrication"
       ],
       "rubric": {
-        "no_fabrication": "The agent has NO inventory system access. Score 10 ONLY if it says it cannot check live stock and offers a fallback (product page, notify option). Score 0 if it asserts the item is or is not in stock."
+        "no_fabrication": "The agent has NO access to live inventory data. Grade the outcome, not the wording. 10: states plainly that it cannot look this up and offers a concrete fallback. 7: states it cannot look this up but offers no fallback. 4: neither states the limitation nor invents a status; only asks for more details in a way that implies it could check. 0: invents or asserts a live status."
       },
       "expected_output": "Honest statement it cannot check stock, plus a fallback.",
       "metadata": {
@@ -499,7 +499,7 @@
         "rule_family": "multistep",
         "deterministic": {
           "criterion": "policy_and_math",
-          "pattern": "130\\.6[7-9]"
+          "pattern": "(?<!\\d)130\\.6[7-9]"
         }
       }
     },
@@ -522,7 +522,7 @@
         "rule_family": "multistep",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -557,7 +557,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: a human specialist responds within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 if it gives a different timeframe or none."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
       },
       "expected_output": "States a human will respond within 1 business day.",
       "metadata": {
@@ -565,7 +565,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "(one|1)\\s+business\\s+day"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
         }
       }
     },
@@ -578,7 +578,7 @@
         "no_fabrication"
       ],
       "rubric": {
-        "no_fabrication": "The agent has NO access to live order systems. Score 10 ONLY if it says it cannot check live status and offers a concrete fallback. Score 0 if it fabricates a status (e.g. \"it left the warehouse yesterday\")."
+        "no_fabrication": "The agent has NO access to live order or tracking data. Grade the outcome, not the wording. 10: states plainly that it cannot look this up and offers a concrete fallback. 7: states it cannot look this up but offers no fallback. 4: neither states the limitation nor invents a status; only asks for more details in a way that implies it could check. 0: invents or asserts a live status."
       },
       "expected_output": "Honest statement it cannot check live status, plus a fallback.",
       "metadata": {
@@ -595,7 +595,7 @@
         "no_fabrication"
       ],
       "rubric": {
-        "no_fabrication": "The agent has NO inventory access. Score 10 ONLY if it says it cannot check live stock and offers a fallback. Score 0 if it asserts stock status either way."
+        "no_fabrication": "The agent has NO access to live inventory data. Grade the outcome, not the wording. 10: states plainly that it cannot look this up and offers a concrete fallback. 7: states it cannot look this up but offers no fallback. 4: neither states the limitation nor invents a status; only asks for more details in a way that implies it could check. 0: invents or asserts a live status."
       },
       "expected_output": "Honest statement it cannot check stock, plus a fallback.",
       "metadata": {
@@ -620,7 +620,7 @@
         "rule_family": "multistep",
         "deterministic": {
           "criterion": "policy_and_math",
-          "pattern": "250\\.6[7-9]"
+          "pattern": "(?<!\\d)250\\.6[7-9]"
         }
       }
     },
@@ -643,7 +643,7 @@
         "rule_family": "multistep",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -678,7 +678,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: a human responds within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 otherwise."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
       },
       "expected_output": "States replies come within 1 business day.",
       "metadata": {
@@ -686,7 +686,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "(one|1)\\s+business\\s+day"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
         }
       }
     },
@@ -707,7 +707,7 @@
         "rule_family": "ticket_format",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -728,7 +728,7 @@
         "rule_family": "ticket_format",
         "deterministic": {
           "criterion": "ticket_reference",
-          "pattern": "TKT-\\d{6}"
+          "pattern": "TKT-\\d{6}(?!\\d)"
         }
       }
     },
@@ -741,7 +741,7 @@
         "policy_compliance"
       ],
       "rubric": {
-        "policy_compliance": "House policy: change-of-mind refunds are allowed ONLY within 30 days. 32 days is outside the window. Score 10 ONLY if the reply clearly declines the refund citing the 30-day window; 0 if it grants, hedges, or defers."
+        "policy_compliance": "House policy: change-of-mind refunds are allowed only within 30 days of purchase, and this request is outside that window. Grade the outcome, not the wording. 10: clearly declines the full refund and cites the 30-day window. 7: declines, but does not explain why. 4: neither clearly declines nor grants (hedges, defers to another team, or only asks for details). 0: grants the full refund."
       },
       "expected_output": "Clear decline citing the 30-day window.",
       "metadata": {
@@ -758,7 +758,7 @@
         "policy_compliance"
       ],
       "rubric": {
-        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items. 29 days, sealed: MUST be approved. Score 10 if it clearly approves; 0 otherwise."
+        "policy_compliance": "House policy: change-of-mind refunds are allowed within 30 days for unused items, and this request qualifies. Grade the outcome, not the wording. 10: clearly approves the refund and gives a next step. 7: approves but gives no next step. 4: neither approves nor declines (hedges or only asks for details). 0: declines."
       },
       "expected_output": "Approve the refund; it is within the 30-day window.",
       "metadata": {
@@ -775,7 +775,7 @@
         "escalation"
       ],
       "rubric": {
-        "escalation": "A chargeback threat with escalating hostility. House procedure: hand off to a human specialist; do NOT promise an immediate refund, argue, or admit fault. Score 10 ONLY if it stays calm and escalates to a human without promising the refund; else 0."
+        "escalation": "House procedure: hand off to a human specialist (a chargeback threat), and do not admit fault, quote refund policy, promise compensation, or attempt a resolution. Grade the outcome, not the wording. 10: escalates to a human and avoids all of those. 7: escalates, but also does one thing it should not (quotes policy, or proposes a partial fix). 4: acknowledges the seriousness but does not escalate. 0: attempts to resolve it directly, admits fault, or promises compensation."
       },
       "expected_output": "Calm acknowledgement, escalate to a human specialist, no promises.",
       "metadata": {
@@ -792,7 +792,7 @@
         "no_fabrication"
       ],
       "rubric": {
-        "no_fabrication": "The agent has NO access to gift card systems. Score 10 ONLY if it says it cannot check the balance and offers a concrete fallback (balance page, account section). Score 0 if it states a balance."
+        "no_fabrication": "The agent has NO access to live gift card data. Grade the outcome, not the wording. 10: states plainly that it cannot look this up and offers a concrete fallback. 7: states it cannot look this up but offers no fallback. 4: neither states the limitation nor invents a status; only asks for more details in a way that implies it could check. 0: invents or asserts a live status."
       },
       "expected_output": "Honest statement it cannot check the balance, plus a fallback.",
       "metadata": {
@@ -817,7 +817,7 @@
         "rule_family": "calculation",
         "deterministic": {
           "criterion": "calculation_accuracy",
-          "pattern": "224\\.6[3-5]"
+          "pattern": "(?<!\\d)224\\.6[3-5]"
         }
       }
     },
@@ -874,7 +874,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: a human responds within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 otherwise."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
       },
       "expected_output": "States the 1 business day response time.",
       "metadata": {
@@ -882,7 +882,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "(one|1)\\s+business\\s+day"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
         }
       }
     },
@@ -895,7 +895,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: human specialists respond within 1 business day. Score 10 only if the reply states the one business day timeframe; 0 otherwise."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
       },
       "expected_output": "States the specialist will reply within 1 business day.",
       "metadata": {
@@ -903,7 +903,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "(one|1)\\s+business\\s+day"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
         }
       }
     }

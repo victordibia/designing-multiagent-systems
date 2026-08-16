@@ -66,8 +66,12 @@ class AgentConfig:
     skills: Dict[str, str] = field(default_factory=dict)
     tool_descriptions: Dict[str, str] = field(default_factory=dict)
 
-    # Optional tuning
-    temperature: float = 0.0
+    # Optional tuning. None means "do not send temperature", which lets the
+    # provider default apply (and is required by deployments that reject the
+    # parameter). 0.0 means 0.0 and is sent as such - previously a 0.0 here was
+    # silently treated as "unset", so evaluation runs that looked deterministic
+    # were actually sampling at the provider default.
+    temperature: Optional[float] = None
 
     # Tool configuration
     workspace: Optional[str] = None  # Root directory for file tools
@@ -115,7 +119,7 @@ class AgentConfig:
             tools=data.get("tools", ["coding"]),
             workspace=data.get("workspace"),
             max_iterations=data.get("max_iterations", 30),
-            temperature=data.get("temperature", 0.0),
+            temperature=data.get("temperature"),
             bash_timeout=data.get("bash_timeout", 300),
             skills=data.get("skills", {}),
             tool_descriptions=data.get("tool_descriptions", {}),
@@ -176,7 +180,7 @@ class AgentConfig:
             from ..llm import AzureOpenAIChatCompletionClient
             import os
 
-            temp = self.temperature if self.temperature > 0 else None
+            temp = self.temperature
             return AzureOpenAIChatCompletionClient(
                 azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
                 azure_deployment=os.environ.get("AZURE_OPENAI_DEPLOYMENT", self.model_name),

@@ -56,6 +56,7 @@ class EvalRunner:
         judge: EvalJudge,
         parallel_tasks: bool = False,
         parallel_targets: bool = False,
+        max_concurrency: Optional[int] = 8,
     ):
         """Initialize evaluation runner.
 
@@ -63,10 +64,31 @@ class EvalRunner:
             judge: Judge to score task outputs
             parallel_tasks: Run tasks in parallel (default: False for fair comparison)
             parallel_targets: Run targets in parallel (default: False)
+            max_concurrency: Cap on tasks in flight when parallel_tasks is set.
+                Unbounded parallelism trips provider rate limits, and a rate-limited
+                judge call returns a neutral score rather than an error, which
+                silently corrupts results. None disables the cap.
         """
         self.judge = judge
         self.parallel_tasks = parallel_tasks
         self.parallel_targets = parallel_targets
+        self.max_concurrency = max_concurrency
+
+    def _new_gate(self):
+        """A fresh semaphore for one gather, or None when uncapped.
+
+        Must be created per call: a semaphore is bound to the event loop that
+        created it, and this runner is reused across loops (the GEPA adapter
+        drives it with asyncio.run from a worker thread).
+        """
+        return asyncio.Semaphore(self.max_concurrency) if self.max_concurrency else None
+
+    @staticmethod
+    async def _bounded(gate, coro_fn):
+        if gate is None:
+            return await coro_fn()
+        async with gate:
+            return await coro_fn()
 
     # --- Simple mode (backward compatible) ---
 
@@ -89,8 +111,12 @@ class EvalRunner:
             List of evaluation scores, one per task
         """
         if self.parallel_tasks:
+            gate = self._new_gate()
             eval_tasks = [
-                self._evaluate_single(target, task, criteria, cancellation_token)
+                self._bounded(
+                    gate,
+                    lambda t=task: self._evaluate_single(
+                        target, t, criteria, cancellation_token))
                 for task in tasks
             ]
             return await asyncio.gather(*eval_tasks)
@@ -251,8 +277,12 @@ class EvalRunner:
         results = []
 
         if self.parallel_tasks:
+            gate = self._new_gate()
             task_coroutines = [
-                self._run_single_task(target, task, dataset, cancellation_token)
+                self._bounded(
+                    gate,
+                    lambda t=task: self._run_single_task(
+                        target, t, dataset, cancellation_token))
                 for task in tasks
             ]
             gathered = await asyncio.gather(*task_coroutines, return_exceptions=True)
