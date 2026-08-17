@@ -354,6 +354,7 @@ class TestModelClients:
         assert cost > 0
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not os.getenv("AZURE_OPENAI_API_KEY"),
     reason="AZURE_OPENAI_API_KEY not set"
@@ -382,6 +383,7 @@ class TestOpenAIIntegration:
         assert "hello" in result.message.content.lower()
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not os.getenv("ANTHROPIC_API_KEY"),
     reason="ANTHROPIC_API_KEY not set"
@@ -393,7 +395,7 @@ class TestAnthropicIntegration:
     async def test_anthropic_basic_completion(self):
         """Test actual Anthropic API call."""
         client = AnthropicChatCompletionClient(
-            model="claude-3-5-haiku-20241022",
+            model="claude-haiku-4-5",
             api_key=os.getenv("ANTHROPIC_API_KEY")
         )
 

@@ -6,8 +6,9 @@ anthropic>=0.73.0 client library.
 """
 
 import json
+import logging
 import time
-from typing import Any, AsyncGenerator, Dict, List, Optional, Type
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -21,6 +22,7 @@ try:
     from anthropic import RateLimitError as AnthropicRateLimitError
     from anthropic.types import Message as AnthropicMessage
     from anthropic.types import ContentBlock, ToolUseBlock
+
     _ANTHROPIC_AVAILABLE = True
 except ImportError:  # optional extra - fail when the client is used, not on import
     _ANTHROPIC_AVAILABLE = False
@@ -31,6 +33,7 @@ except ImportError:  # optional extra - fail when the client is used, not on imp
 from .._component_config import Component
 from ..messages import AssistantMessage, Message, ToolCallRequest
 from ..types import ChatCompletionChunk, ChatCompletionResult, Usage
+
 from ._base import (
     AuthenticationError,
     BaseChatCompletionClient,
@@ -38,6 +41,8 @@ from ._base import (
     InvalidRequestError,
     RateLimitError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AnthropicChatCompletionClientConfig(BaseModel):
@@ -90,9 +95,7 @@ class AnthropicChatCompletionClient(
             )
         super().__init__(model, api_key, **kwargs)
 
-        self.client = AsyncAnthropic(
-            api_key=api_key, base_url=base_url, **kwargs
-        )
+        self.client = AsyncAnthropic(api_key=api_key, base_url=base_url, **kwargs)
 
     async def create(
         self,
@@ -129,7 +132,9 @@ class AnthropicChatCompletionClient(
             request_params = {
                 "model": self.model,
                 "messages": api_messages,
-                "max_tokens": kwargs.get("max_tokens", 4096),  # Anthropic requires max_tokens
+                "max_tokens": kwargs.get(
+                    "max_tokens", 4096
+                ),  # Anthropic requires max_tokens
             }
 
             # Add system message if present
@@ -155,7 +160,7 @@ class AnthropicChatCompletionClient(
                 # Add Anthropic-specific formatting - note: 'schema' not 'json_schema'
                 request_params["output_format"] = {
                     "type": "json_schema",
-                    "schema": self._make_schema_compatible(schema)
+                    "schema": self._make_schema_compatible(schema),
                 }
 
             # Make API call
@@ -182,7 +187,9 @@ class AnthropicChatCompletionClient(
                     tool_calls.append(
                         ToolCallRequest(
                             tool_name=block.name,
-                            parameters=block.input if isinstance(block.input, dict) else {},
+                            parameters=(
+                                block.input if isinstance(block.input, dict) else {}
+                            ),
                             call_id=block.id,
                         )
                     )
@@ -213,8 +220,7 @@ class AnthropicChatCompletionClient(
                 tokens_output=response.usage.output_tokens,
                 tool_calls=len(tool_calls),
                 cost_estimate=self._estimate_cost(
-                    response.usage.input_tokens,
-                    response.usage.output_tokens
+                    response.usage.input_tokens, response.usage.output_tokens
                 ),
             )
 
@@ -307,14 +313,13 @@ class AnthropicChatCompletionClient(
                             if block_index not in tool_call_chunks:
                                 tool_call_chunks[block_index] = {
                                     "id": f"call_{block_index}",
-                                    "function": {
-                                        "name": "",
-                                        "arguments": ""
-                                    }
+                                    "function": {"name": "", "arguments": ""},
                                 }
 
                             # Append partial JSON to arguments
-                            tool_call_chunks[block_index]["function"]["arguments"] += event.delta.partial_json
+                            tool_call_chunks[block_index]["function"][
+                                "arguments"
+                            ] += event.delta.partial_json
 
                             yield ChatCompletionChunk(
                                 content="",
@@ -330,8 +335,8 @@ class AnthropicChatCompletionClient(
                                 "id": event.content_block.id,
                                 "function": {
                                     "name": event.content_block.name,
-                                    "arguments": ""
-                                }
+                                    "arguments": "",
+                                },
                             }
 
                 # Get final message for usage stats
@@ -387,73 +392,71 @@ class AnthropicChatCompletionClient(
                 content_parts = []
 
                 if msg.content and msg.content.strip():
-                    content_parts.append({
-                        "type": "text",
-                        "text": msg.content
-                    })
+                    content_parts.append({"type": "text", "text": msg.content})
 
                 if msg.is_image() and (msg.data or msg.media_url):
                     if msg.data:
                         # Use base64 data
                         base64_data = msg.to_base64()
-                        content_parts.append({
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": msg.mime_type,
-                                "data": base64_data
+                        content_parts.append(
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": msg.mime_type,
+                                    "data": base64_data,
+                                },
                             }
-                        })
+                        )
                     elif msg.media_url:
                         # Anthropic doesn't support URLs directly, would need to download
-                        print("Warning: Anthropic API doesn't support image URLs directly")
+                        print(
+                            "Warning: Anthropic API doesn't support image URLs directly"
+                        )
 
-                api_messages.append({
-                    "role": msg.role,
-                    "content": content_parts if content_parts else msg.content
-                })
+                api_messages.append(
+                    {
+                        "role": msg.role,
+                        "content": content_parts if content_parts else msg.content,
+                    }
+                )
             elif isinstance(msg, AssistantMessage) and msg.tool_calls:
                 # Handle assistant messages with tool calls
                 content_blocks = []
 
                 # Add text content if present
                 if msg.content:
-                    content_blocks.append({
-                        "type": "text",
-                        "text": msg.content
-                    })
+                    content_blocks.append({"type": "text", "text": msg.content})
 
                 # Add tool use blocks
                 for tc in msg.tool_calls:
-                    content_blocks.append({
-                        "type": "tool_use",
-                        "id": tc.call_id,
-                        "name": tc.tool_name,
-                        "input": tc.parameters
-                    })
+                    content_blocks.append(
+                        {
+                            "type": "tool_use",
+                            "id": tc.call_id,
+                            "name": tc.tool_name,
+                            "input": tc.parameters,
+                        }
+                    )
 
-                api_messages.append({
-                    "role": "assistant",
-                    "content": content_blocks
-                })
+                api_messages.append({"role": "assistant", "content": content_blocks})
             elif isinstance(msg, ToolMessage):
                 # Handle tool response messages
-                api_messages.append({
-                    "role": "user",  # Anthropic uses "user" role for tool results
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": msg.tool_call_id,
-                            "content": msg.content
-                        }
-                    ]
-                })
+                api_messages.append(
+                    {
+                        "role": "user",  # Anthropic uses "user" role for tool results
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": msg.tool_call_id,
+                                "content": msg.content,
+                            }
+                        ],
+                    }
+                )
             else:
                 # Regular text messages
-                api_messages.append({
-                    "role": msg.role,
-                    "content": msg.content
-                })
+                api_messages.append({"role": msg.role, "content": msg.content})
 
         return api_messages
 
@@ -474,11 +477,13 @@ class AnthropicChatCompletionClient(
         for tool in tools:
             if tool.get("type") == "function":
                 function = tool.get("function", {})
-                anthropic_tools.append({
-                    "name": function.get("name"),
-                    "description": function.get("description", ""),
-                    "input_schema": function.get("parameters", {})
-                })
+                anthropic_tools.append(
+                    {
+                        "name": function.get("name"),
+                        "description": function.get("description", ""),
+                        "input_schema": function.get("parameters", {}),
+                    }
+                )
 
         return anthropic_tools
 
@@ -503,8 +508,8 @@ class AnthropicChatCompletionClient(
             properties = compatible_schema.get("properties", {})
             for prop_name, prop_schema in properties.items():
                 if isinstance(prop_schema, dict):
-                    compatible_schema["properties"][prop_name] = self._make_schema_compatible(
-                        prop_schema
+                    compatible_schema["properties"][prop_name] = (
+                        self._make_schema_compatible(prop_schema)
                     )
 
         # Handle arrays with object items
@@ -526,24 +531,52 @@ class AnthropicChatCompletionClient(
         Returns:
             Estimated cost in USD
         """
-        # Approximate pricing for Claude models (as of 2024)
-        pricing = {
-            "claude-3-5-sonnet": {"input": 0.003 / 1000, "output": 0.015 / 1000},
-            "claude-3-opus": {"input": 0.015 / 1000, "output": 0.075 / 1000},
-            "claude-3-sonnet": {"input": 0.003 / 1000, "output": 0.015 / 1000},
-            "claude-3-haiku": {"input": 0.00025 / 1000, "output": 0.00125 / 1000},
-        }
+        # Base per-token rates, from the published per-MTok prices. Verified
+        # against platform.claude.com/docs/en/about-claude/pricing (Aug 2026).
+        #
+        # Ordered most-specific prefix first and matched in order, because the
+        # prefixes nest: "claude-opus-4-5" also startswith "claude-opus-4", and
+        # those two carry different prices. Do not reorder casually.
+        #
+        # This is a base-rate estimate only. It does not model prompt-caching
+        # multipliers, the Batch API discount, fast mode, or the data-residency
+        # multiplier, so a run using those will not match your invoice.
+        M = 1_000_000
+        pricing: List[Tuple[str, Dict[str, float]]] = [
+            ("claude-fable-5", {"input": 10 / M, "output": 50 / M}),
+            ("claude-opus-5", {"input": 5 / M, "output": 25 / M}),
+            ("claude-opus-4-8", {"input": 5 / M, "output": 25 / M}),
+            ("claude-opus-4-7", {"input": 5 / M, "output": 25 / M}),
+            ("claude-opus-4-6", {"input": 5 / M, "output": 25 / M}),
+            ("claude-opus-4-5", {"input": 5 / M, "output": 25 / M}),
+            ("claude-opus-4", {"input": 15 / M, "output": 75 / M}),
+            ("claude-sonnet-5", {"input": 2 / M, "output": 10 / M}),
+            ("claude-sonnet-4", {"input": 3 / M, "output": 15 / M}),
+            ("claude-haiku-4-5", {"input": 1 / M, "output": 5 / M}),
+            # legacy ids, retained for older configs and saved runs
+            ("claude-3-5-sonnet", {"input": 3 / M, "output": 15 / M}),
+            ("claude-3-5-haiku", {"input": 0.80 / M, "output": 4 / M}),
+            ("claude-3-opus", {"input": 15 / M, "output": 75 / M}),
+            ("claude-3-sonnet", {"input": 3 / M, "output": 15 / M}),
+            ("claude-3-haiku", {"input": 0.25 / M, "output": 1.25 / M}),
+        ]
 
-        # Match model prefix
         model_pricing = None
-        for model_prefix, prices in pricing.items():
+        for model_prefix, prices in pricing:
             if self.model.startswith(model_prefix):
                 model_pricing = prices
                 break
 
-        if not model_pricing:
-            # Default to Sonnet pricing if model not recognized
-            model_pricing = pricing["claude-3-sonnet"]
+        if model_pricing is None:
+            # Fall back to mid-tier Sonnet rates, but say so. Silently pricing
+            # an unknown model produces a plausible number that is wrong, which
+            # is worse than a number you know to distrust.
+            logger.warning(
+                "No pricing entry for model %r; estimating at Sonnet 4.5 rates "
+                "($3/$15 per MTok). Reported cost may be inaccurate.",
+                self.model,
+            )
+            model_pricing = {"input": 3 / M, "output": 15 / M}
 
         input_cost = input_tokens * model_pricing["input"]
         output_cost = output_tokens * model_pricing["output"]

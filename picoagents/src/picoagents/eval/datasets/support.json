@@ -1,6 +1,6 @@
 {
   "name": "support",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Customer-support agent tasks for measuring agent optimization, designed to mirror a real e-commerce help desk rather than a toy benchmark. Tasks follow real contact-driver categories (order status, returns/refunds, warranty, account security, billing math, escalations), and every house rule is one real support organizations have: ticket reference formats, a 30-day return window, escalation policy for safety/legal/fraud, prorated billing. Rules live only in the rubric (the SME-curated policy doc), mirroring the real deployment gap optimization must close. TRAIN/TEST SPLIT (task.metadata.split): test tasks reuse the same rule families with new customer contacts - like optimizing on last month's tickets and deploying on next month's - so scoring the optimized agent on test measures whether it learned the policy or memorized the tickets. Paired tasks (decline-vs-approve, escalate-vs-handle) block degenerate policies; a routine regression task checks optimization does not break normal traffic. Where a rule is objectively checkable (formats, arithmetic, forbidden PII) task.metadata.deterministic gives a regex for zero-variance scoring. Model-judged criteria use GRADED rubrics with explicit score bands rather than pass/fail, because a judge asked for a binary verdict returns intermediate values anyway and binary scoring on half-learned rules maximises variance. Rubrics grade the outcome, never the exact wording.",
   "categories": [
     "format",
@@ -31,7 +31,8 @@
         "deterministic": {
           "criterion": "ticket_reference",
           "pattern": "TKT-\\d{6}(?!\\d)"
-        }
+        },
+        "rule_family": "ticket_format"
       }
     },
     {
@@ -52,7 +53,8 @@
         "deterministic": {
           "criterion": "ticket_reference",
           "pattern": "TKT-\\d{6}(?!\\d)"
-        }
+        },
+        "rule_family": "ticket_format"
       }
     },
     {
@@ -75,7 +77,8 @@
         "deterministic": {
           "criterion": "ticket_reference",
           "pattern": "TKT-\\d{6}(?!\\d)"
-        }
+        },
+        "rule_family": "ticket_format"
       }
     },
     {
@@ -92,7 +95,8 @@
       "expected_output": "Clear decline citing the 30-day window; optional store credit.",
       "metadata": {
         "lever": "policy",
-        "split": "train"
+        "split": "train",
+        "rule_family": "refund_policy"
       }
     },
     {
@@ -109,7 +113,8 @@
       "expected_output": "Approve the refund and explain next steps.",
       "metadata": {
         "lever": "policy",
-        "split": "train"
+        "split": "train",
+        "rule_family": "refund_policy"
       }
     },
     {
@@ -126,7 +131,8 @@
       "expected_output": "Approve a refund/replacement for the defective item.",
       "metadata": {
         "lever": "policy",
-        "split": "train"
+        "split": "train",
+        "rule_family": "refund_policy"
       }
     },
     {
@@ -143,7 +149,8 @@
       "expected_output": "Express concern, do not admit fault, escalate to a human specialist.",
       "metadata": {
         "lever": "escalation",
-        "split": "train"
+        "split": "train",
+        "rule_family": "escalation"
       }
     },
     {
@@ -160,7 +167,8 @@
       "expected_output": "Escalate to the security/fraud team; do not resolve charges directly.",
       "metadata": {
         "lever": "escalation",
-        "split": "train"
+        "split": "train",
+        "rule_family": "escalation"
       }
     },
     {
@@ -177,7 +185,8 @@
       "expected_output": "Confirm the address can be changed pre-shipment; request the new address.",
       "metadata": {
         "lever": "escalation",
-        "split": "train"
+        "split": "train",
+        "rule_family": "escalation"
       }
     },
     {
@@ -198,7 +207,8 @@
         "deterministic": {
           "criterion": "calculation_accuracy",
           "pattern": "(?<!\\d)124\\.8[7-9]"
-        }
+        },
+        "rule_family": "calculation"
       }
     },
     {
@@ -219,7 +229,8 @@
         "deterministic": {
           "criterion": "calculation_accuracy",
           "pattern": "(?<!\\d)188\\.(69|70|71)"
-        }
+        },
+        "rule_family": "calculation"
       }
     },
     {
@@ -238,7 +249,8 @@
       "expected_output": "A short, empathetic acknowledgement plus a clear status next step.",
       "metadata": {
         "lever": "instructions",
-        "split": "train"
+        "split": "train",
+        "rule_family": "tone"
       }
     },
     {
@@ -257,7 +269,8 @@
       "expected_output": "You have 30 days to return unused items for a change-of-mind refund.",
       "metadata": {
         "lever": "instructions",
-        "split": "train"
+        "split": "train",
+        "rule_family": "tone"
       }
     },
     {
@@ -557,7 +570,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any WORDING of that commitment (one business day, 1 business day, one (1) business day, next business day). Do NOT credit a different commitment such as 24 hours, 24-48 hours or two business days, which is a different promise rather than a rephrasing. Score 10 if the reply states the one-business-day commitment, else 0."
       },
       "expected_output": "States a human will respond within 1 business day.",
       "metadata": {
@@ -565,7 +578,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day"
         }
       }
     },
@@ -678,7 +691,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any WORDING of that commitment (one business day, 1 business day, one (1) business day, next business day). Do NOT credit a different commitment such as 24 hours, 24-48 hours or two business days, which is a different promise rather than a rephrasing. Score 10 if the reply states the one-business-day commitment, else 0."
       },
       "expected_output": "States replies come within 1 business day.",
       "metadata": {
@@ -686,7 +699,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day"
         }
       }
     },
@@ -874,7 +887,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any WORDING of that commitment (one business day, 1 business day, one (1) business day, next business day). Do NOT credit a different commitment such as 24 hours, 24-48 hours or two business days, which is a different promise rather than a rephrasing. Score 10 if the reply states the one-business-day commitment, else 0."
       },
       "expected_output": "States the 1 business day response time.",
       "metadata": {
@@ -882,7 +895,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day"
         }
       }
     },
@@ -895,7 +908,7 @@
         "sla_accuracy"
       ],
       "rubric": {
-        "sla_accuracy": "House policy: a human responds within one business day. Credit any equivalent statement of that commitment (one business day, 1 business day, next business day, or 24 hours). Score 10 if the reply states that commitment, else 0."
+        "sla_accuracy": "House policy: a human responds within one business day. Credit any WORDING of that commitment (one business day, 1 business day, one (1) business day, next business day). Do NOT credit a different commitment such as 24 hours, 24-48 hours or two business days, which is a different promise rather than a rephrasing. Score 10 if the reply states the one-business-day commitment, else 0."
       },
       "expected_output": "States the specialist will reply within 1 business day.",
       "metadata": {
@@ -903,7 +916,7 @@
         "rule_family": "sla",
         "deterministic": {
           "criterion": "sla_accuracy",
-          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day|\\b24[\\s-]?(hours|hrs)"
+          "pattern": "\\b(one|1)(\\s*\\(1\\))?[\\s-]+business[\\s-]+day|next business day"
         }
       }
     }
