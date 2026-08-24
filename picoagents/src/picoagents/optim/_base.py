@@ -17,11 +17,12 @@ acceptance gate, with a full evaluation only on candidates that clear it.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..eval import AgentConfig, Dataset, EvalRunner, PicoAgentTarget
 from ..types import EvalScore, Task, Usage
 from ._spec import OptimizationSpec
+from ._trace import OptimizationTrace, usage_dict
 
 
 def _task_key(score: EvalScore) -> str:
@@ -30,6 +31,9 @@ def _task_key(score: EvalScore) -> str:
         t = score.trajectory.task
         return t.id or t.name
     return ""
+
+
+task_key = _task_key  # public alias for subclasses and tooling
 
 
 def _zero_usage() -> Usage:
@@ -157,6 +161,9 @@ class OptimizationResult:
     rounds: int
     eval_count: int  # total task rollouts spent (the cost story)
     cost: "CostLog" = field(default_factory=lambda: CostLog())  # tokens/USD by source
+    # Every decision the run made (evals, proposals, gate verdicts, selection), in
+    # order, JSON-serializable. ``pool`` keeps the survivors; this keeps the story.
+    trace: OptimizationTrace = field(default_factory=OptimizationTrace)
 
     @property
     def best_candidate(self) -> Candidate:
@@ -178,6 +185,8 @@ class BaseOptimizer(ABC):
         minibatch: Optional[int] = None,
         beam: int = 4,
         budget: Optional[int] = None,
+        trace: bool = True,
+        trace_messages: bool = False,
     ):
         """
         Args:
@@ -193,6 +202,10 @@ class BaseOptimizer(ABC):
             budget: Optional cap on total task rollouts. Optimization stops once
                 ``eval_count`` reaches it. Use to compare methods under an equal
                 cost budget (the fair way to compare optimizers).
+            trace: Record every eval, proposal, gate verdict and selection into
+                ``OptimizationResult.trace`` (observational; never changes the run).
+            trace_messages: Also keep full agent transcripts per rollout in the
+                trace. Off by default because transcripts dominate file size.
         """
         self.runner = runner
         self.dataset = dataset
@@ -205,29 +218,57 @@ class BaseOptimizer(ABC):
         self.budget = budget
         self.eval_count = 0  # task rollouts spent across the run
         self.cost = CostLog()  # tokens/USD by source (agent / judge / reflection)
+        self.trace = OptimizationTrace(enabled=trace, include_messages=trace_messages)
+        self._round = 0  # 0 = seed; incremented per propose/evaluate round
 
     async def optimize(self, seed: AgentConfig) -> OptimizationResult:
-        seed_cand = Candidate(seed, await self._eval_full(seed), parent=None, rationale="seed")
+        self._round = 0
+        seed_cand = Candidate(
+            seed, await self._eval_full(seed, purpose="seed"), parent=None, rationale="seed"
+        )
         pool: List[Candidate] = [seed_cand]
+        self.trace.record(
+            "candidate", 0, name=seed.name, parent=None, rationale="seed",
+            avg=seed_cand.avg, task_scores=seed_cand.task_scores,
+            components=self._components(seed),
+        )
 
-        for _ in range(self.rounds):
+        for r in range(self.rounds):
             if self._budget_exhausted():
                 break
+            self._round = r + 1
             parents = self.select_parents(pool)
+            self.trace.record(
+                "parents", self._round, parents=[c.config.name for c in parents],
+                pool=[c.config.name for c in pool],
+            )
             proposals = await self.propose(parents, pool)
             for cfg, rationale in proposals:
                 if self._budget_exhausted():
                     break
                 parent = parents[0]
                 if self._is_noop(parent.config, cfg):
-                    continue  # proposed edits fell outside the spec - skip, don't pay to eval
+                    # proposed edits fell outside the spec - skip, don't pay to eval
+                    self.trace.record(
+                        "noop", self._round, candidate=cfg.name, parent=parent.config.name
+                    )
+                    continue
                 if not await self._passes_gate(parent, cfg):
                     continue
                 cand = Candidate(
                     cfg, await self._eval_full(cfg), parent=parent.config.name, rationale=rationale
                 )
                 pool.append(cand)
+                self.trace.record(
+                    "candidate", self._round, name=cfg.name, parent=parent.config.name,
+                    rationale=rationale, avg=cand.avg, task_scores=cand.task_scores,
+                    components=self._components(cfg),
+                )
             pool = self.select(pool)
+            self.trace.record(
+                "select", self._round, pool=[c.config.name for c in pool],
+                avgs={c.config.name: c.avg for c in pool},
+            )
 
         return OptimizationResult(
             best=max(pool, key=lambda c: c.avg).config,
@@ -235,6 +276,7 @@ class BaseOptimizer(ABC):
             rounds=self.rounds,
             eval_count=self.eval_count,
             cost=self.cost,
+            trace=self.trace,
         )
 
     # --- evaluation (reuses eval module; this is where cost is spent) ---
@@ -259,12 +301,39 @@ class BaseOptimizer(ABC):
             self.cost.reflection = self.cost.reflection + usage
             self.cost.reflection_ms += usage.duration_ms
 
+    def _record_proposal(
+        self,
+        *,
+        parent: Optional[str],
+        messages: List[Dict[str, str]],
+        response: Optional[str],
+        candidate: Optional[AgentConfig] = None,
+        usage: Optional[Usage] = None,
+        model: Optional[str] = None,
+        **extra: Any,
+    ) -> None:
+        """Subclasses call this after each proposer/reflector LLM call to keep what
+        the proposer was shown and what it wrote (``_track_reflection`` keeps only
+        the cost). ``candidate`` is the config the call produced, if any."""
+        self.trace.record(
+            "proposal", self._round, parent=parent, messages=messages, response=response,
+            candidate=candidate.name if candidate else None,
+            components=self._components(candidate) if candidate else None,
+            usage=usage_dict(usage), model=model, **extra,
+        )
+
+    def _components(self, cfg: AgentConfig) -> Dict[str, str]:
+        """The optimizable text components of a config, by name."""
+        return {c.name: c.value for c in self.spec.read(cfg)}
+
     def _budget_exhausted(self) -> bool:
         """True once the rollout budget (if any) is spent."""
         return self.budget is not None and self.eval_count >= self.budget
 
-    async def _eval_full(self, config: AgentConfig) -> List[EvalScore]:
-        return await self._eval(config, self.tasks)
+    async def _eval_full(self, config: AgentConfig, purpose: str = "full") -> List[EvalScore]:
+        scores = await self._eval(config, self.tasks)
+        self.trace.record_eval(self._round, purpose, config.name, scores)
+        return scores
 
     @staticmethod
     def _is_noop(parent_cfg: AgentConfig, cfg: AgentConfig) -> bool:
@@ -283,7 +352,16 @@ class BaseOptimizer(ABC):
         cand_sum = sum(s.overall for s in cand_scores)
         parent_lookup = parent.task_scores
         parent_sum = sum(parent_lookup.get(t.id or t.name, 0.0) for t in mb)
-        return cand_sum > parent_sum
+        accepted = cand_sum > parent_sum
+        self.trace.record_eval(self._round, "gate", cfg.name, cand_scores)
+        self.trace.record(
+            "gate", self._round, candidate=cfg.name, parent=parent.config.name,
+            task_ids=[t.id or t.name for t in mb],
+            candidate_scores={_task_key(s): s.overall for s in cand_scores},
+            parent_scores={(t.id or t.name): parent_lookup.get(t.id or t.name, 0.0) for t in mb},
+            candidate_sum=cand_sum, parent_sum=parent_sum, accepted=accepted,
+        )
+        return accepted
 
     # --- the three knobs (override in subclasses) ---
 

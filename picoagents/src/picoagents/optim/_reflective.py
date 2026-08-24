@@ -10,7 +10,7 @@ whatever the OptimizationSpec opened up.
 """
 
 from dataclasses import replace
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -18,7 +18,7 @@ from ..eval import AgentConfig
 from ..llm import BaseChatCompletionClient
 from ..messages import SystemMessage, UserMessage
 from ..types import EvalScore
-from ._base import BaseOptimizer, Candidate
+from ._base import BaseOptimizer, Candidate, task_key
 from ._spec import Component, Edit, Operation, ProposalMode
 
 
@@ -68,17 +68,36 @@ class ReflectiveOptimizer(BaseOptimizer):
             output_format=_ReflectionOut,
         )
         self._track_reflection(result.usage)
-        reflection: _ReflectionOut = result.structured_output  # type: ignore[assignment]
-        if reflection is None or not reflection.edits:
-            return []
+        reflection: Optional[_ReflectionOut] = result.structured_output  # type: ignore[assignment]
+        messages = [
+            {"role": "system", "content": REFLECTION_SYSTEM},
+            {"role": "user", "content": prompt},
+        ]
+        shown = [
+            {"task_id": task_key(s), "overall": s.overall} for s in weak
+        ]  # which failing examples the reflector saw (full records are in the parent's eval)
 
-        edits = [self._to_edit(e) for e in reflection.edits]
-        edits = [e for e in edits if e is not None]
-        if not edits:
-            return []
+        new_config: Optional[AgentConfig] = None
+        edits: List[Edit] = []
+        if reflection is not None and reflection.edits:
+            edits = [e for e in (self._to_edit(e) for e in reflection.edits) if e is not None]
+        if edits:
+            new_config = self.spec.apply(parent.config, edits)
+            new_config = replace(new_config, name=self._fresh_name(parent.config.name))
 
-        new_config = self.spec.apply(parent.config, edits)
-        new_config = replace(new_config, name=self._fresh_name(parent.config.name))
+        self._record_proposal(
+            parent=parent.config.name, messages=messages, response=result.message.content,
+            candidate=new_config, usage=result.usage, model=result.model, stage="reflect",
+            shown=shown,
+            diagnosis=reflection.diagnosis if reflection else None,
+            edits=[
+                {"op": e.op.value, "kind": e.kind, "name": e.name, "value": e.value,
+                 "rationale": e.rationale}
+                for e in edits
+            ],
+        )
+        if new_config is None or reflection is None:
+            return []
         return [(new_config, reflection.diagnosis)]
 
     # --- helpers ---

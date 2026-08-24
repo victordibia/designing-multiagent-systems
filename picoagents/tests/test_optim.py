@@ -209,3 +209,129 @@ async def test_reflective_pareto_runs():
     res = await opt.optimize(AgentConfig(name="seed", system_prompt="s"))
     assert res.best_candidate.avg >= 5.0
     assert res.eval_count > 0
+
+
+# --- trace -----------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_trace_records_gate_rejections_and_round_trips(tmp_path):
+    """The trace keeps what the result drops: rejected proposals and gate scores."""
+    from picoagents.optim import load_trace
+
+    ds = Dataset(name="d", tasks=_tasks(4))
+    # proposals get WORSE each round (longer prompt -> lower score) so the
+    # minibatch gate rejects every one of them after the seed.
+    opt = StubOptimizer(object(), ds, rounds=3, minibatch=2, beam=20,
+                        score_fn=lambda c, t: 10.0 - len(c.system_prompt))
+    res = await opt.optimize(AgentConfig(name="seed", system_prompt=""))
+
+    assert len(res.pool) == 1  # every proposal rejected -> result knows nothing about them
+    assert res.eval_count == 4 + 3 * 2  # seed full eval + 3 gate evals of 2 tasks
+
+    tr = res.trace
+    gates = list(tr.of_kind("gate"))
+    assert [g["accepted"] for g in gates] == [False, False, False]
+    assert gates[0]["task_ids"] == ["t0", "t1"]
+    assert gates[0]["candidate_sum"] < gates[0]["parent_sum"]
+    assert gates[0]["candidate"] == "c1" and gates[0]["parent"] == "seed"
+    evals = list(tr.of_kind("eval"))
+    assert [e["purpose"] for e in evals] == ["seed", "gate", "gate", "gate"]
+    assert evals[0]["n_tasks"] == 4 and evals[1]["n_tasks"] == 2
+    assert evals[0]["per_task"][0]["task_id"] == "t0"
+    assert evals[0]["per_task"][0]["agent_usage"]["tokens_input"] == 10
+    assert [e["round"] for e in tr.of_kind("select")] == [1, 2, 3]
+    assert next(tr.of_kind("candidate"))["components"] == {"instructions": ""}
+
+    # JSON round trip through save/load preserves every event
+    path = tmp_path / "trace.json"
+    tr.save(path)
+    back = load_trace(path)
+    assert back.events == tr.events
+    assert res.trace.to_dict()["schema"] == 1
+
+
+@pytest.mark.asyncio
+async def test_trace_records_accepted_candidates_and_noops():
+    ds = Dataset(name="d", tasks=_tasks(3))
+    opt = StubOptimizer(object(), ds, rounds=2, minibatch=1, beam=20,
+                        score_fn=lambda c, t: 5.0 + len(c.system_prompt))
+    res = await opt.optimize(AgentConfig(name="seed", system_prompt=""))
+    tr = res.trace
+    assert [g["accepted"] for g in tr.of_kind("gate")] == [True, True]
+    assert [e["purpose"] for e in tr.of_kind("eval")] == ["seed", "gate", "full", "gate", "full"]
+    cands = list(tr.of_kind("candidate"))
+    assert [(c["name"], c["parent"]) for c in cands] == [("seed", None), ("c1", "seed"), ("c2", "c1")]
+    assert list(tr.of_kind("select"))[-1]["pool"][0] == "c2"  # greedy keeps the best first
+
+    noop = NoopOptimizer(object(), ds, rounds=2, beam=20)
+    res2 = await noop.optimize(AgentConfig(name="seed", system_prompt="s"))
+    assert [n["candidate"] for n in res2.trace.of_kind("noop")] == ["c1", "c2"]
+    assert not list(res2.trace.of_kind("gate"))
+
+
+@pytest.mark.asyncio
+async def test_trace_can_be_disabled_without_changing_the_run():
+    ds = Dataset(name="d", tasks=_tasks(3))
+    on = StubOptimizer(object(), ds, rounds=3, minibatch=1, score_fn=lambda c, t: 5.0 + len(c.system_prompt))
+    off = StubOptimizer(object(), ds, rounds=3, minibatch=1, trace=False,
+                        score_fn=lambda c, t: 5.0 + len(c.system_prompt))
+    r_on = await on.optimize(AgentConfig(name="seed", system_prompt=""))
+    r_off = await off.optimize(AgentConfig(name="seed", system_prompt=""))
+    assert r_off.trace.events == []
+    assert r_on.eval_count == r_off.eval_count
+    assert r_on.best.system_prompt == r_off.best.system_prompt
+
+
+@pytest.mark.asyncio
+async def test_reflective_trace_keeps_prompt_and_structured_response():
+    """The reflector's prompt, diagnosis and edits survive in the trace."""
+    from picoagents.messages import AssistantMessage
+    from picoagents.optim import ReflectiveOptimizer
+    from picoagents.optim._reflective import _EditOut, _ReflectionOut
+    from picoagents.types import ChatCompletionResult
+
+    class FakeReflector:
+        def __init__(self):
+            self.calls = []
+
+        async def create(self, messages, output_format=None, **kw):
+            self.calls.append(messages)
+            out = _ReflectionOut(
+                diagnosis="replies lack the ticket reference",
+                edits=[_EditOut(op="rewrite", kind="instructions", name="instructions",
+                                value="Always include TKT-######.", rationale="judge asked for it")],
+            )
+            return ChatCompletionResult(
+                message=AssistantMessage(content=out.model_dump_json(), source="fake"),
+                usage=Usage(duration_ms=3, llm_calls=1, tokens_input=50, tokens_output=20),
+                model="fake-model", finish_reason="stop", structured_output=out,
+            )
+
+    class StubReflective(ReflectiveOptimizer):
+        async def _eval(self, config, tasks):
+            self.eval_count += len(tasks)
+            return [_score(t, 10.0 if "TKT" in config.system_prompt else 2.0) for t in tasks]
+
+    ds = Dataset(name="d", tasks=_tasks(2))
+    opt = StubReflective(object(), ds, rounds=1, reflector=FakeReflector())
+    res = await opt.optimize(AgentConfig(name="seed", system_prompt="Help the customer."))
+
+    assert res.best.system_prompt == "Always include TKT-######."
+    props = list(res.trace.of_kind("proposal"))
+    assert len(props) == 1
+    p = props[0]
+    assert p["stage"] == "reflect" and p["parent"] == "seed" and p["candidate"] == "seed#1"
+    assert p["messages"][0]["role"] == "system"
+    assert "Failing examples" in p["messages"][1]["content"]
+    assert "Help the customer." in p["messages"][1]["content"]
+    assert p["diagnosis"] == "replies lack the ticket reference"
+    assert p["edits"][0]["value"] == "Always include TKT-######."
+    assert p["edits"][0]["rationale"] == "judge asked for it"
+    assert p["components"] == {"instructions": "Always include TKT-######."}
+    assert p["usage"]["tokens_input"] == 50 and p["model"] == "fake-model"
+    assert [s["task_id"] for s in p["shown"]] == ["t0", "t1"]
+    assert res.cost.reflection.tokens_input == 50  # cost accounting unchanged
+    # the whole thing serializes
+    import json
+    json.loads(res.trace.to_json())

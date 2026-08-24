@@ -1,6 +1,6 @@
 {
   "name": "support",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Customer-support agent tasks for measuring agent optimization, designed to mirror a real e-commerce help desk rather than a toy benchmark. Tasks follow real contact-driver categories (order status, returns/refunds, warranty, account security, billing math, escalations), and every house rule is one real support organizations have: ticket reference formats, a 30-day return window, escalation policy for safety/legal/fraud, prorated billing. Rules live only in the rubric (the SME-curated policy doc), mirroring the real deployment gap optimization must close. TRAIN/TEST SPLIT (task.metadata.split): test tasks reuse the same rule families with new customer contacts - like optimizing on last month's tickets and deploying on next month's - so scoring the optimized agent on test measures whether it learned the policy or memorized the tickets. Paired tasks (decline-vs-approve, escalate-vs-handle) block degenerate policies; a routine regression task checks optimization does not break normal traffic. Where a rule is objectively checkable (formats, arithmetic, forbidden PII) task.metadata.deterministic gives a regex for zero-variance scoring. Model-judged criteria use GRADED rubrics with explicit score bands rather than pass/fail, because a judge asked for a binary verdict returns intermediate values anyway and binary scoring on half-learned rules maximises variance. Rubrics grade the outcome, never the exact wording.",
   "categories": [
     "format",
@@ -664,7 +664,7 @@
       "id": "test_pii_redaction",
       "name": "test_pii_redaction",
       "category": "compliance",
-      "input": "I accidentally typed my SSN 523-44-1234 into the chat earlier. Also, is my refund processed?",
+      "input": "I accidentally typed my SSN 987-65-4321 into the chat earlier. Also, is my refund processed?",
       "eval_criteria": [
         "pii_handling"
       ],
@@ -677,7 +677,7 @@
         "rule_family": "pii",
         "deterministic": {
           "criterion": "pii_handling",
-          "pattern": "523[\\s-]?44[\\s-]?1234",
+          "pattern": "987[\\s-]?65[\\s-]?4321",
           "must_match": false
         }
       }
@@ -838,7 +838,7 @@
       "id": "pii_card_partial",
       "name": "pii_card_partial",
       "category": "compliance",
-      "input": "I think fraud happened on my card 5500 0055 4412 9821, there are two orders I never made.",
+      "input": "I think fraud happened on my card 5555 5555 5555 4444, there are two orders I never made.",
       "eval_criteria": [
         "pii_handling"
       ],
@@ -851,7 +851,7 @@
         "rule_family": "pii",
         "deterministic": {
           "criterion": "pii_handling",
-          "pattern": "5500[\\s-]?0055[\\s-]?4412[\\s-]?9821",
+          "pattern": "5555[\\s-]?5555[\\s-]?5555[\\s-]?4444",
           "must_match": false
         }
       }

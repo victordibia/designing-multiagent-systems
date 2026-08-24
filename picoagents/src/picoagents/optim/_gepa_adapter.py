@@ -17,7 +17,7 @@ calls with ``asyncio.run`` inside that thread.
 """
 
 import asyncio
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional
 
 from ..eval import AgentConfig, Dataset, EvalRunner, PicoAgentTarget
@@ -25,6 +25,7 @@ from ..llm import BaseChatCompletionClient
 from ..messages import UserMessage
 from ..types import Task, Usage
 from ._base import CostLog
+from ._trace import OptimizationTrace, usage_dict
 from ._spec import Edit, InstructionTunable, Operation, OptimizationSpec
 
 try:  # gepa is an optional dependency
@@ -56,9 +57,13 @@ class _CostTrackingReflectionLM:
 
     total_cost = 0.0
 
-    def __init__(self, client: BaseChatCompletionClient, cost: CostLog):
+    def __init__(
+        self, client: BaseChatCompletionClient, cost: CostLog,
+        trace: Optional[OptimizationTrace] = None,
+    ):
         self._client = client
         self._cost = cost
+        self._trace = trace
 
     def __call__(self, prompt: Any) -> str:
         if isinstance(prompt, str):
@@ -68,6 +73,13 @@ class _CostTrackingReflectionLM:
         result = asyncio.run(self._client.create(messages))
         if result.usage is not None:
             self._cost.reflection = self._cost.reflection + result.usage
+            self._cost.reflection_ms += result.usage.duration_ms
+        if self._trace is not None:
+            self._trace.record(
+                "gepa:reflection_lm", -1,
+                messages=[{"role": "user", "content": m.content} for m in messages],
+                response=result.message.content, usage=usage_dict(result.usage), model=result.model,
+            )
         return result.message.content or ""
 
 
@@ -90,11 +102,13 @@ class PicoGepaAdapter:
         spec: OptimizationSpec,
         runner: EvalRunner,
         cost: CostLog,
+        trace: Optional[OptimizationTrace] = None,
     ):
         self.base_config = base_config
         self.spec = spec
         self.runner = runner
         self.cost = cost
+        self.trace = trace if trace is not None else OptimizationTrace(enabled=False)
         self.eval_count = 0  # task rollouts - same unit as BaseOptimizer.eval_count
         self.history: List[Dict[str, Any]] = []  # per-evaluate record for analysis
         # component name -> kind, so we can apply text back with the right tunable
@@ -148,6 +162,12 @@ class PicoGepaAdapter:
         # record what GEPA evaluated, for analysis
         self.history.append({"candidate": dict(candidate), "capture_traces": capture_traces,
                              "per_task": per_task})
+        # The library's callbacks say WHY this eval happened (minibatch / valset,
+        # iteration, parent); this records WHAT it scored, per task, with usage.
+        self.trace.record_eval(
+            -1, "batch", cfg.name, scores, capture_traces=capture_traces,
+            candidate_components=dict(candidate),
+        )
         return EvaluationBatch(outputs=outputs, scores=score_vals, trajectories=trajectories)
 
     def make_reflective_dataset(
@@ -170,6 +190,99 @@ class GepaRunResult:
     num_candidates: int
     history: List[Dict[str, Any]]  # per-evaluate records (candidate + per-task responses/scores)
     raw: Any  # the underlying gepa GEPAResult
+    # Replayable record: GEPA's own callback events (``gepa:*``), every eval with
+    # per-task scores, the reflection LM's prompts/responses, and GEPAResult.to_dict().
+    trace: OptimizationTrace = field(default_factory=OptimizationTrace)
+
+
+class _GepaTraceCallback:
+    """Mirrors GEPA's callback protocol into an ``OptimizationTrace``.
+
+    Every event becomes a ``gepa:<event>`` record keyed by GEPA's iteration
+    number. Events are TypedDicts of plain values, recorded as-is (``default=str``
+    on save covers anything exotic). Runs on GEPA's worker thread; appends only.
+    """
+
+    def __init__(self, trace: OptimizationTrace):
+        self._trace = trace
+
+    def _rec(self, name: str, event: Dict[str, Any]) -> None:
+        data = dict(event)
+        iteration = data.pop("iteration", -1)
+        # large per-example payloads that the adapter already records per task
+        # (``state`` is the live GEPAState object; lineage/scores come from gepa:result)
+        for big in ("outputs", "trajectories", "outputs_by_val_id", "reflective_dataset",
+                    "dataset", "state"):
+            data.pop(big, None)
+        if "exception" in data:
+            data["exception"] = repr(data["exception"])
+        self._trace.record(f"gepa:{name}", int(iteration), **data)
+
+    def on_optimization_start(self, event: Dict[str, Any]) -> None:
+        self._rec("optimization_start", event)
+
+    def on_optimization_end(self, event: Dict[str, Any]) -> None:
+        self._rec("optimization_end", event)
+
+    def on_iteration_start(self, event: Dict[str, Any]) -> None:
+        self._rec("iteration_start", event)
+
+    def on_iteration_end(self, event: Dict[str, Any]) -> None:
+        self._rec("iteration_end", event)
+
+    def on_candidate_selected(self, event: Dict[str, Any]) -> None:
+        self._rec("candidate_selected", event)
+
+    def on_minibatch_sampled(self, event: Dict[str, Any]) -> None:
+        self._rec("minibatch_sampled", event)
+
+    def on_evaluation_start(self, event: Dict[str, Any]) -> None:
+        self._rec("evaluation_start", event)
+
+    def on_evaluation_end(self, event: Dict[str, Any]) -> None:
+        self._rec("evaluation_end", event)
+
+    def on_evaluation_skipped(self, event: Dict[str, Any]) -> None:
+        self._rec("evaluation_skipped", event)
+
+    def on_valset_evaluated(self, event: Dict[str, Any]) -> None:
+        self._rec("valset_evaluated", event)
+
+    def on_reflective_dataset_built(self, event: Dict[str, Any]) -> None:
+        self._rec("reflective_dataset_built", event)
+
+    def on_proposal_start(self, event: Dict[str, Any]) -> None:
+        self._rec("proposal_start", event)
+
+    def on_proposal_end(self, event: Dict[str, Any]) -> None:
+        self._rec("proposal_end", event)  # carries prompts + raw_lm_outputs + new_instructions
+
+    def on_candidate_accepted(self, event: Dict[str, Any]) -> None:
+        self._rec("candidate_accepted", event)
+
+    def on_candidate_rejected(self, event: Dict[str, Any]) -> None:
+        self._rec("candidate_rejected", event)
+
+    def on_merge_attempted(self, event: Dict[str, Any]) -> None:
+        self._rec("merge_attempted", event)
+
+    def on_merge_accepted(self, event: Dict[str, Any]) -> None:
+        self._rec("merge_accepted", event)
+
+    def on_merge_rejected(self, event: Dict[str, Any]) -> None:
+        self._rec("merge_rejected", event)
+
+    def on_pareto_front_updated(self, event: Dict[str, Any]) -> None:
+        self._rec("pareto_front_updated", event)
+
+    def on_state_saved(self, event: Dict[str, Any]) -> None:
+        self._rec("state_saved", event)
+
+    def on_budget_updated(self, event: Dict[str, Any]) -> None:
+        self._rec("budget_updated", event)
+
+    def on_error(self, event: Dict[str, Any]) -> None:
+        self._rec("error", event)
 
 
 async def optimize_with_gepa(
@@ -186,6 +299,8 @@ async def optimize_with_gepa(
     max_merge_invocations: int = 5,
     reflection_minibatch_size: int = 3,
     perfect_score: float = 10.0,
+    trace: bool = True,
+    trace_messages: bool = False,
     **gepa_kwargs: Any,
 ) -> GepaRunResult:
     """Optimize a picoagents agent with the real GEPA library.
@@ -193,16 +308,24 @@ async def optimize_with_gepa(
     Args mirror GEPA's knobs so its design choices can be ablated: candidate
     selection (pareto vs current_best vs ...), component selection, merge on/off,
     minibatch size, and the metric-call budget. Cost lands in the returned CostLog.
+
+    With ``trace`` on (default), GEPA's callback events, every evaluation's per-task
+    scores, and the reflection LM's prompts and responses land in ``result.trace``.
+    Extra ``callbacks=[...]`` in ``gepa_kwargs`` are kept alongside the tracer.
     """
     _require_gepa()
     spec = spec or OptimizationSpec([InstructionTunable()])
     tasks = list(dataset.tasks)
 
     cost = CostLog()
-    reflection_lm = _CostTrackingReflectionLM(reflection_client, cost)
-    adapter = PicoGepaAdapter(base_config, spec, runner, cost)
+    run_trace = OptimizationTrace(enabled=trace, include_messages=trace_messages)
+    reflection_lm = _CostTrackingReflectionLM(reflection_client, cost, run_trace)
+    adapter = PicoGepaAdapter(base_config, spec, runner, cost, run_trace)
 
     seed_candidate = {c.name: c.value for c in spec.read(base_config)}
+    callbacks: List[Any] = list(gepa_kwargs.pop("callbacks", None) or [])
+    if trace:
+        callbacks.append(_GepaTraceCallback(run_trace))
 
     result = await asyncio.to_thread(
         _gepa.optimize,
@@ -218,6 +341,7 @@ async def optimize_with_gepa(
         max_merge_invocations=max_merge_invocations,
         reflection_minibatch_size=reflection_minibatch_size,
         perfect_score=perfect_score,
+        callbacks=callbacks or None,
         **gepa_kwargs,
     )
 
@@ -225,7 +349,13 @@ async def optimize_with_gepa(
         result.best_candidate if isinstance(result.best_candidate, dict)
         else {next(iter(seed_candidate)): result.best_candidate}
     )
+    if trace:
+        try:  # lineage + per-instance scores, in the library's own schema
+            run_trace.record("gepa:result", -1, result=result.to_dict())
+        except Exception as e:  # pragma: no cover - older gepa without to_dict
+            run_trace.record("gepa:result", -1, result=None, error=repr(e))
     return GepaRunResult(
         best=best, cost=cost, eval_count=adapter.eval_count,
         num_candidates=result.num_candidates, history=adapter.history, raw=result,
+        trace=run_trace,
     )

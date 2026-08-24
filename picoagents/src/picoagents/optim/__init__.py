@@ -29,6 +29,7 @@ from ._gepa_adapter import (
 from ._mipro import MIPROOptimizer
 from ._reflective import ReflectiveOptimizer
 from ._reflective_pareto import ReflectiveParetoOptimizer, pareto_frontier
+from ._trace import OptimizationTrace, load_trace, task_record
 from ._spec import (
     CatalogEntry,
     Component,
@@ -53,6 +54,10 @@ __all__ = [
     "OptimizationResult",
     "CostLog",
     "pareto_frontier",
+    # replayable record of a run
+    "OptimizationTrace",
+    "load_trace",
+    "task_record",
     # real GEPA (optional dependency)
     "optimize_with_gepa",
     "PicoGepaAdapter",

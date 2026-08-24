@@ -16,11 +16,12 @@ Simplifications vs the real MIPROv2 (documented for honesty):
 """
 
 from dataclasses import replace
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..eval import AgentConfig
 from ..llm import BaseChatCompletionClient
 from ..messages import SystemMessage, UserMessage
+from ..types import Usage
 from ._base import BaseOptimizer, Candidate
 
 # Style tips, mirroring DSPy's tip-augmented instruction proposal.
@@ -67,6 +68,7 @@ class MIPROOptimizer(BaseOptimizer):
         self.sample_tasks = sample_tasks
         self._summary: Optional[str] = None
         self._proposed = False
+        self._last_proposal_call: Tuple[List[Dict[str, str]], Optional[str], Optional[Usage], Optional[str]] = ([], None, None, None)
 
     def select_parents(self, pool: List[Candidate]) -> List[Candidate]:
         # MIPRO proposes for the program from a summary, not by improving a parent.
@@ -89,6 +91,11 @@ class MIPROOptimizer(BaseOptimizer):
             instruction = await self._propose_instruction(seed_cfg.system_prompt, tip)
             cfg = replace(seed_cfg, name=f"mipro#{i + 1}", system_prompt=instruction)
             proposals.append((cfg, f"summary-grounded, tip: {tip}"))
+            messages, response, usage, model = self._last_proposal_call
+            self._record_proposal(
+                parent=seed_cfg.name, stage="propose", messages=messages, response=response,
+                candidate=cfg, usage=usage, model=model, tip=tip,
+            )
         return proposals
 
     # --- helpers (data-aware proposal, no failure-trace reflection) ---
@@ -107,6 +114,13 @@ class MIPROOptimizer(BaseOptimizer):
              UserMessage(content=prompt, source="mipro")]
         )
         self._track_reflection(result.usage)
+        self._record_proposal(
+            parent=None, stage="summary",
+            messages=[{"role": "system", "content": SUMMARY_SYSTEM},
+                      {"role": "user", "content": prompt}],
+            response=result.message.content, usage=result.usage, model=result.model,
+            sampled_task_ids=[t.id or t.name for t in sample],
+        )
         return result.message.content or ""
 
     async def _propose_instruction(self, current: str, tip: str) -> str:
@@ -121,4 +135,8 @@ class MIPROOptimizer(BaseOptimizer):
              UserMessage(content=prompt, source="mipro")]
         )
         self._track_reflection(result.usage)
+        self._last_proposal_call = (
+            [{"role": "system", "content": PROPOSE_SYSTEM}, {"role": "user", "content": prompt}],
+            result.message.content, result.usage, result.model,
+        )
         return (result.message.content or current).strip()
