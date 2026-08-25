@@ -1,2 +1,2 @@
-chainlit>=2.4.0
+chainlit>=2.12.0
 autogenstudio>=0.4.2
