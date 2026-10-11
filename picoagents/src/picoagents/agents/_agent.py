@@ -418,6 +418,9 @@ class Agent(Component[AgentConfig], BaseAgent):
                                             "function": chunk.tool_call_chunk.get(
                                                 "function", {}
                                             ),
+                                            "extra_content": chunk.tool_call_chunk.get(
+                                                "extra_content"
+                                            ),
                                         }
                             else:
                                 # Stream complete - capture usage from final chunk
@@ -447,6 +450,7 @@ class Agent(Component[AgentConfig], BaseAgent):
                                                     tc_data["function"]["arguments"]
                                                 ),
                                                 call_id=tc_data["id"],
+                                                extra_content=tc_data.get("extra_content"),
                                             )
                                         )
                                     else:

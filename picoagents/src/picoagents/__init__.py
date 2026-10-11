@@ -87,6 +87,7 @@ from .llm import (
     BaseChatCompletionError,
     InvalidRequestError,
     OpenAIChatCompletionClient,
+    GeminiChatCompletionClient,
     RateLimitError,
 )
 
@@ -243,6 +244,7 @@ __all__ = [
     "AuthenticationError",
     "InvalidRequestError",
     "OpenAIChatCompletionClient",
+    "GeminiChatCompletionClient",
     # Orchestration
     "BaseOrchestrator",
     "RoundRobinOrchestrator",

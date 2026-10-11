@@ -179,6 +179,7 @@ class OpenAIChatCompletionClient(
                                 if function_call.arguments
                                 else {},
                                 call_id=tc.id,
+                                extra_content=getattr(tc, "extra_content", None),
                             )
                         )
 
@@ -284,8 +285,11 @@ class OpenAIChatCompletionClient(
 
             accumulated_content = ""
             tool_call_chunks = {}
+            pending_usage = None
 
             async for chunk in stream:
+                if chunk.usage:
+                    pending_usage = chunk.usage
                 # Handle usage-only chunk (comes AFTER finish_reason, has empty choices array)
                 if hasattr(chunk, "usage") and chunk.usage and (not chunk.choices or len(chunk.choices) == 0):
                     # This is the final usage-only chunk
@@ -302,7 +306,7 @@ class OpenAIChatCompletionClient(
                         tool_call_chunk=None,
                         usage=usage_data,
                     )
-                    break
+                    return
 
                 if not chunk.choices:
                     continue
@@ -338,6 +342,10 @@ class OpenAIChatCompletionClient(
                         if call_id:
                             tool_call_chunks[tracking_key]["id"] = call_id
 
+                        extra_content = getattr(tc_delta, "extra_content", None)
+                        if extra_content:
+                            tool_call_chunks[tracking_key]["extra_content"] = extra_content
+
                         # Update function data
                         if tc_delta.function:
                             if tc_delta.function.name:
@@ -362,6 +370,21 @@ class OpenAIChatCompletionClient(
                     # Don't yield completion yet - wait for usage chunk
                     continue
 
+            # Compatible endpoints may attach usage to the final choice rather
+            # than send OpenAI's separate usage-only chunk.
+            if pending_usage is not None:
+                yield ChatCompletionChunk(
+                    content="",
+                    is_complete=True,
+                    usage=Usage(
+                        duration_ms=0,
+                        llm_calls=1,
+                        tokens_input=pending_usage.prompt_tokens,
+                        tokens_output=pending_usage.completion_tokens,
+                        tool_calls=0,
+                    ),
+                )
+
         except OpenAIAuthError as e:
             raise AuthenticationError(f"OpenAI authentication failed: {str(e)}")
         except OpenAIRateLimitError as e:
@@ -371,7 +394,7 @@ class OpenAIChatCompletionClient(
         except Exception as e:
             raise BaseChatCompletionError(f"Unexpected error: {str(e)}")
 
-    def _estimate_cost(self, usage: CompletionUsage) -> float:
+    def _estimate_cost(self, usage: CompletionUsage) -> Optional[float]:
         """
         Estimate the cost of the API call based on token usage.
 

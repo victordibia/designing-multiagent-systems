@@ -15,6 +15,7 @@ from ._base import (
     RateLimitError,
 )
 from ._openai import OpenAIChatCompletionClient
+from ._gemini import GeminiChatCompletionClient
 
 __all__ = [
     "BaseChatCompletionClient",
@@ -23,6 +24,7 @@ __all__ = [
     "AuthenticationError",
     "InvalidRequestError",
     "OpenAIChatCompletionClient",
+    "GeminiChatCompletionClient",
     "AzureOpenAIChatCompletionClient",
     "AnthropicChatCompletionClient",
 ]

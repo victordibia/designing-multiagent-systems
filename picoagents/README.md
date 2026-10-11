@@ -17,7 +17,7 @@ pip install picoagents
 **Requirements:**
 
 - Python 3.10+
-- OpenAI API key (set `OPENAI_API_KEY` environment variable)
+- API key for your chosen provider (`OPENAI_API_KEY` or `GEMINI_API_KEY`)
 
 **Optional extras:**
 
@@ -48,6 +48,53 @@ agent = Agent(
 response = await agent.run("What's the weather in Paris?")
 print(response.messages[-1].content)
 ```
+
+### Using Gemini
+
+Create an API key in [Google AI Studio](https://aistudio.google.com/apikey),
+then set `GEMINI_API_KEY` in your environment. PicoAgents does not automatically
+load `.env` files; use `python-dotenv` if you keep your key in one.
+
+```python
+import asyncio
+from picoagents import Agent, GeminiChatCompletionClient
+
+async def main():
+    agent = Agent(
+        name="assistant",
+        instructions="You are helpful.",
+        model_client=GeminiChatCompletionClient(model="gemini-3.1-flash-lite"),
+    )
+    response = await agent.run("Explain multi-agent systems in three sentences.")
+    print(response.messages[-1].content)
+
+asyncio.run(main())
+```
+
+You can also pass `api_key` directly. `GOOGLE_API_KEY` is accepted as a fallback;
+`GEMINI_API_KEY` takes precedence. This client uses Google's documented
+[OpenAI-compatible endpoint](https://ai.google.dev/gemini-api/docs/openai)
+with the existing OpenAI dependency. It supports chat, function tools, image
+inputs, structured output, streaming, and component serialization. Streaming
+structured output has the same limitation as the OpenAI client. Cost estimates
+are left unset because billing depends on your model and account.
+
+Select a model available to your account. Google's
+[free tier and rate limits](https://ai.google.dev/gemini-api/docs/rate-limits)
+depend on the model and project; an API key does not guarantee unlimited free use.
+
+To run the live Gemini tests from the `picoagents` directory:
+
+```bash
+pip install -e ".[dev,examples]"
+python -m pytest tests/test_gemini_integration.py -m integration
+```
+
+These tests load `picoagents/.env` and consume API quota. They cover chat,
+structured output, streaming and token usage, agent tool execution, round-robin
+and AI-driven orchestration, plan-based orchestration, termination, and
+serialization. Set `GEMINI_TEST_MODEL` to test a different available model.
+The default is `gemini-3.1-flash-lite`. Normal test runs exclude live API tests.
 
 ## What's Included
 

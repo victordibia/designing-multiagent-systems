@@ -58,6 +58,9 @@ class ToolCallRequest(BaseModel):
     tool_name: str = Field(..., description="Name of the tool to call")
     parameters: Dict[str, Any] = Field(..., description="Arguments for the tool")
     call_id: str = Field(..., description="Unique identifier for this call")
+    extra_content: Optional[Dict[str, Any]] = Field(
+        default=None, description="Provider metadata, including Gemini thought signatures"
+    )
 
     class Config:
         frozen = True

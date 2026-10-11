@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `GeminiChatCompletionClient` using Google's OpenAI-compatible endpoint, with AI Studio API-key authentication, tools, structured output, streaming, and serialization.
+- Opt-in live Gemini tests for agents, tools, streaming, structured output, and round-robin, AI-driven, and plan-based orchestration.
+
+### Fixed
+
+- Preserve Gemini thought signatures through normal and streaming function calls.
+- Read streaming token usage when compatible endpoints attach it to the final choice.
+- Correct the pytest configuration header so live integration tests are excluded by default.
+
 ### Changed
 
 - **BREAKING**: `MCPClientManager.get_session()` is now `get_client()`, with no alias. The method returns an `mcp.client.Client`, and the 2026-07-28 protocol has no sessions, so the old name described something the protocol removed. Callers that used the `get_client` alias added in 0.5.0 are unaffected.
