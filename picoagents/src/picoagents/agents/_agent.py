@@ -1029,7 +1029,9 @@ class Agent(Component[AgentConfig], BaseAgent):
                 from ..types import ToolResult
 
                 async def _tool_call(data):
-                    task = asyncio.create_task(tool.execute(data.parameters))
+                    task = asyncio.create_task(
+                        tool.execute_with_context(data.parameters, working_context)
+                    )
                     if cancellation_token:
                         cancellation_token.link_future(task)
                     return await task

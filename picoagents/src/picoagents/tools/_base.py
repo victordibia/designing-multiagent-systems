@@ -27,6 +27,7 @@ from ..types import ToolResult
 
 if TYPE_CHECKING:
     from .._cancellation_token import CancellationToken
+    from ..context import AgentContext
     from ..messages import Message
     from ..types import AgentEvent
 
@@ -90,6 +91,17 @@ class BaseTool(ComponentBase[BaseModel], ABC):
             ToolResult containing execution outcome
         """
         pass
+
+    async def execute_with_context(
+        self, parameters: Dict[str, Any], context: "AgentContext"
+    ) -> ToolResult:
+        """Execute with conversation state when called by an agent.
+
+        Stateless tools keep their existing execute() behavior. Tools that need
+        conversation-scoped state can override this without storing it on a
+        shared tool instance or exposing it as a model-controlled argument.
+        """
+        return await self.execute(parameters)
 
     async def execute_stream(
         self,
