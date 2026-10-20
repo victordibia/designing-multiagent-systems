@@ -5,6 +5,7 @@ The scripted model is deterministic; it does not test live model reasoning.
 
 import asyncio
 import json
+import os
 from uuid import UUID
 
 import pytest
@@ -412,9 +413,16 @@ async def test_configured_tavily_success_keeps_result_contract(wire, monkeypatch
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    os.getenv("PICOAGENTS_RUN_LIVE_SEARCH") != "1",
+    reason="Set PICOAGENTS_RUN_LIVE_SEARCH=1 to spend anonymous search quota",
+)
 @pytest.mark.asyncio
 async def test_live_anonymous_factory_agent():
-    """Opt-in live transport + scripted model; no LLM API credential required."""
+    """Run explicitly with PICOAGENTS_RUN_LIVE_SEARCH=1 pytest -m integration.
+
+    Uses live search and a scripted model; no LLM API credential required.
+    """
     agent = make_agent()
     await agent.run("Python official latest release documentation")
     consumed = agent.model_client.consumed[-1]
