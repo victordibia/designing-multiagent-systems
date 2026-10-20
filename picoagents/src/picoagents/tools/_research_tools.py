@@ -5,14 +5,19 @@ These tools enable agents to search the web, fetch content, and extract
 information from various sources without using LLMs.
 """
 
+import asyncio
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 from ..types import ToolResult
 from ._base import BaseTool
+
+if TYPE_CHECKING:
+    from ..context import AgentContext
 
 try:
     import httpx
@@ -217,13 +222,20 @@ class GoogleSearchTool(BaseTool):
 
 
 class WebSearchTool(BaseTool):
-    """Search the web using Tavily API."""
+    """Search with anonymous Parallel MCP, or Tavily when a key is supplied.
+
+    Set provider explicitly to keep that selection even without credentials.
+    A failed provider never silently falls back to another service.
+    """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         allowed_domains: Optional[List[str]] = None,
         blocked_domains: Optional[List[str]] = None,
+        *,
+        provider: Optional[Literal["parallel", "tavily"]] = None,
+        timeout: float = 30.0,
     ) -> None:
         super().__init__(
             name="web_search",
@@ -232,6 +244,12 @@ class WebSearchTool(BaseTool):
                 "Results are filtered based on allowed/blocked domain rules for security."
             ),
         )
+        if provider not in (None, "parallel", "tavily"):
+            raise ValueError("provider must be 'parallel' or 'tavily'")
+        if timeout <= 0:
+            raise ValueError("timeout must be positive")
+        self.provider = provider or ("tavily" if api_key else "parallel")
+        self.timeout = timeout
         self.api_key = api_key
         self.allowed_domains = allowed_domains or []
         self.blocked_domains = blocked_domains or []
@@ -251,6 +269,24 @@ class WebSearchTool(BaseTool):
         }
 
     async def execute(self, parameters: Dict[str, Any]) -> ToolResult:
+        """Execute a standalone search; each call is a new research run."""
+        return await self._execute(parameters, str(uuid4()))
+
+    async def execute_with_context(
+        self, parameters: Dict[str, Any], context: "AgentContext"
+    ) -> ToolResult:
+        # AgentContext.reset() clears metadata. Never reuse user/session IDs,
+        # which may contain personal data, as Parallel conversation identities.
+        key = "_parallel_search_session_id"
+        if self.provider == "parallel" and key not in context.metadata:
+            context.metadata[key] = str(uuid4())
+        return await self._execute(parameters, context.metadata.get(key))
+
+    async def _execute(
+        self, parameters: Dict[str, Any], session_id: Optional[str]
+    ) -> ToolResult:
+        if self.provider == "parallel":
+            return await self._execute_parallel(parameters, session_id)
         if not HTTPX_AVAILABLE:
             return ToolResult(
                 success=False,
@@ -279,7 +315,7 @@ class WebSearchTool(BaseTool):
                         "query": query,
                         "max_results": max_results,
                     },
-                    timeout=30.0,
+                    timeout=self.timeout,
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -317,6 +353,59 @@ class WebSearchTool(BaseTool):
                 metadata={"query": query},
             )
 
+    async def _execute_parallel(
+        self, parameters: Dict[str, Any], session_id: Optional[str]
+    ) -> ToolResult:
+        query = parameters["query"]
+        metadata = {"query": query, "provider": "parallel"}
+        try:
+            from ._parallel_search import search
+
+            max_results = parameters.get("max_results", 5)
+            if (
+                isinstance(max_results, bool)
+                or not isinstance(max_results, int)
+                or max_results < 1
+            ):
+                raise ValueError("max_results must be a positive integer")
+            data = await asyncio.wait_for(search(query, session_id), self.timeout)
+            items = data["results"]
+            results = []
+            filtered = 0
+            for item in items:
+                url = item["url"]
+                if not self._is_domain_allowed(url):
+                    filtered += 1
+                    continue
+                results.append(
+                    {
+                        "title": item.get("title") or "",
+                        "url": url,
+                        "snippet": "\n".join(item["excerpts"]),
+                    }
+                )
+            results = results[:max_results]
+            return ToolResult(
+                success=True,
+                result=results,
+                error=None,
+                metadata={**metadata, "count": len(results), "filtered": filtered},
+            )
+        except asyncio.TimeoutError:
+            return ToolResult(
+                success=False,
+                result=None,
+                error="Parallel search timed out",
+                metadata=metadata,
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                result=None,
+                error=f"Parallel search failed: {e}",
+                metadata=metadata,
+            )
+
     def _is_domain_allowed(self, url: str) -> bool:
         """
         Check if URL passes domain filtering rules.
@@ -330,7 +419,10 @@ class WebSearchTool(BaseTool):
         try:
             from urllib.parse import urlparse
 
-            domain = urlparse(url).netloc.lower()
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                return False
+            domain = parsed.hostname.lower()
 
             # Check blocked domains first
             if self.blocked_domains:
@@ -428,7 +520,9 @@ class WebFetchTool(BaseTool):
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
 
-            async with httpx.AsyncClient(follow_redirects=True, headers=headers) as client:
+            async with httpx.AsyncClient(
+                follow_redirects=True, headers=headers
+            ) as client:
                 response = await client.get(url, timeout=30.0)
                 response.raise_for_status()
 
@@ -853,6 +947,8 @@ def create_research_tools(
     tavily_api_key: Optional[str] = None,
     google_api_key: Optional[str] = None,
     google_cse_id: Optional[str] = None,
+    *,
+    web_search_provider: Optional[Literal["parallel", "tavily", "disabled"]] = None,
 ) -> Sequence[BaseTool]:
     """
     Create a list of research tools for information retrieval.
@@ -861,6 +957,9 @@ def create_research_tools(
         tavily_api_key: Optional API key for Tavily web search
         google_api_key: Optional API key for Google Custom Search
         google_cse_id: Optional Custom Search Engine ID for Google search
+        web_search_provider: Explicit web-search selection, or "disabled" to
+            omit WebSearchTool. By default, preserve supplied Tavily/Google
+            credentials; otherwise use anonymous Parallel Search MCP.
 
     Returns:
         List of research tool instances
@@ -868,6 +967,8 @@ def create_research_tools(
     Raises:
         ImportError: If required dependencies are not installed
     """
+    if web_search_provider not in (None, "parallel", "tavily", "disabled"):
+        raise ValueError("Unknown web_search_provider")
     tools: List[BaseTool] = []
 
     if HTTPX_AVAILABLE:
@@ -875,9 +976,16 @@ def create_research_tools(
         if google_api_key and google_cse_id:
             tools.append(GoogleSearchTool(api_key=google_api_key, cse_id=google_cse_id))
 
-        # Add Tavily search if API key provided
-        if tavily_api_key:
-            tools.append(WebSearchTool(api_key=tavily_api_key))
+        # A configured Google-only tool set stays Google-only. Explicit choices
+        # take precedence; provider failures never trigger a fallback.
+        if web_search_provider != "disabled" and (
+            web_search_provider is not None
+            or tavily_api_key
+            or not (google_api_key and google_cse_id)
+        ):
+            tools.append(
+                WebSearchTool(api_key=tavily_api_key, provider=web_search_provider)
+            )
 
         tools.append(WebFetchTool())
 

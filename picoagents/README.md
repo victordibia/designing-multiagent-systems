@@ -78,6 +78,51 @@ picoagents/
 └── tests/                 # Comprehensive test suite
 ```
 
+## Web search
+
+Install MCP support for free web search without a search account or API key:
+
+```bash
+pip install "picoagents[mcp]"
+```
+
+```python
+from picoagents import Agent, OpenAIChatCompletionClient
+from picoagents.tools import create_research_tools
+
+agent = Agent(
+    name="researcher",
+    instructions="Search for current information and cite the source URLs.",
+    model_client=OpenAIChatCompletionClient(model="gpt-4.1-mini"),
+    tools=list(create_research_tools()),
+)
+response = await agent.run("What is new in Python's latest release?")
+print(response.messages[-1].content)
+```
+
+Unconfigured `create_research_tools()` and `WebSearchTool()` now use
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+at `https://search.parallel.ai/mcp`. Anonymous search uses Fast mode and is
+intended for exploration and light use, with service rate limits. Results keep
+the existing `title`, `url`, and `snippet` fields. `max_results` limits the
+returned list locally; domain allow/block rules also filter results locally.
+
+Supplying `tavily_api_key` to the factory (or `api_key` to `WebSearchTool`)
+keeps Tavily. A factory configured only with Google credentials stays Google-only.
+Use `web_search_provider="parallel"` or `"tavily"` to select explicitly;
+`web_search_provider="disabled"` omits `WebSearchTool`. Existing Google tools
+remain available when configured. Explicit provider failures are reported without
+switching services. For a single tool, import `WebSearchTool` from
+`picoagents.tools._research_tools` and use `provider="parallel"` or `"tavily"`;
+`timeout` bounds discovery and search (default 30 seconds).
+
+To continue a conversation, pass `context=response.context` to the next
+`agent.run()`. Parallel's opaque conversation ID is kept in context metadata,
+separate from user identifiers. A fresh context or `context.reset()` starts a new
+search conversation. Standalone `tool.execute()` calls each start a separate
+research run. Agent tool approvals and cancellation still apply. Page fetching
+continues to use the existing `WebFetchTool` HTTP implementation.
+
 ## Web UI
 
 Launch the web interface with auto-discovery of agents and workflows:
